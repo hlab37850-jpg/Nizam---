@@ -273,6 +273,7 @@ class DashboardScreen extends ConsumerWidget {
                           spacing: 8,
                           runSpacing: 8,
                           children: [
+
                             ActionChip(label: const Text('Kanban'), avatar: const Icon(LucideIcons.columns, size: 16), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const KanbanScreen()))),
                             ActionChip(label: const Text('المحافظ'), avatar: const Icon(LucideIcons.wallet, size: 16), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WalletsScreen()))),
                             ActionChip(label: const Text('الميزانيات'), avatar: const Icon(LucideIcons.pieChart, size: 16), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BudgetsScreen()))),
@@ -805,7 +806,7 @@ class DebtsScreen extends StatelessWidget {
           for (final d in items)
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
-              child: NCard(child: ListTile(title: Text(d.name), subtitle: Text(d.type), trailing: Text('${d.amount}'))),
+              child: NCard(child: ListTile(title: Text(d.name), subtitle: Text(d.type), trailing: Text('${d.amount}'))),,
             ),
           if (items.isEmpty) const NCard(child: Text('لا توجد ديون')),
           const SizedBox(height: 12),
@@ -843,7 +844,7 @@ class DebtsScreen extends StatelessWidget {
                           final a = double.tryParse(amount.text);
                           if (title.text.isNotEmpty && a != null) {
                             final id = const Uuid().v4();
-                            await box.put(id, Debt(id: id, title: title.text, amount: a, type: type, person: person.text).toMap());
+                            await box.put(id, Debt(id: id, name: title.text.isNotEmpty ? title.text : person.text, amount: a, type: type, date: DateTime.now()).toMap());
                           }
                           if (ctx.mounted) Navigator.pop(ctx);
                         },
@@ -1117,7 +1118,7 @@ class GoalsTimelineScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(g.title, style: Theme.of(context).textTheme.titleMedium),
-                    Text(g.description),
+                    Text('التقدم: ${(g.progress*100).round()}%'),
                     const SizedBox(height: 8),
                     LinearProgressIndicator(value: g.progress),
                     Text('${(g.progress * 100).round()}%'),
@@ -1148,7 +1149,7 @@ class GoalsTimelineScreen extends StatelessWidget {
                       onPressed: () async {
                         if (title.text.isNotEmpty) {
                           final id = const Uuid().v4();
-                          await box.put(id, Goal(id: id, title: title.text, description: desc.text, progress: 0.2).toMap());
+                          await box.put(id, Goal(id: id, title: title.text, progress: 0.2, createdAt: DateTime.now()).toMap());
                         }
                         if (context.mounted) Navigator.pop(context);
                       },
@@ -1183,7 +1184,7 @@ class JournalCalendarScreen extends StatelessWidget {
           for (final j in entries)
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
-              child: NCard(child: ListTile(title: Text(j.title), subtitle: Text(j.content), trailing: Text(j.mood))),
+              child: NCard(child: ListTile(title: Text(j.content.length > 30 ? j.content.substring(0,30)+'...' : j.content), subtitle: Text(j.mood), trailing: Text('${j.date.day}/${j.date.month}'))),
             ),
           if (entries.isEmpty) const NCard(child: Text('لا توجد مذكرات')),
           const SizedBox(height: 12),
@@ -1208,7 +1209,7 @@ class JournalCalendarScreen extends StatelessWidget {
                       onPressed: () async {
                         if (title.text.isNotEmpty) {
                           final id = const Uuid().v4();
-                          await box.put(id, JournalEntry(id: id, title: title.text, content: content.text, date: DateTime.now()).toMap());
+                          await box.put(id, JournalEntry(id: id, content: content.text.isNotEmpty ? content.text : title.text, date: DateTime.now()).toMap());
                         }
                         if (context.mounted) Navigator.pop(context);
                       },
