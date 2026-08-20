@@ -843,7 +843,7 @@ class DebtsScreen extends StatelessWidget {
                           final a = double.tryParse(amount.text);
                           if (title.text.isNotEmpty && a != null) {
                             final id = const Uuid().v4();
-                            await box.put(id, Debt(id: id, title: title.text, amount: a, type: type, person: person.text).toMap());
+                            await box.put(id, Debt(id: id, name: title.text.isNotEmpty ? title.text : person.text, amount: a, type: type, date: DateTime.now()).toMap());
                           }
                           if (ctx.mounted) Navigator.pop(ctx);
                         },
@@ -1117,7 +1117,7 @@ class GoalsTimelineScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(g.title, style: Theme.of(context).textTheme.titleMedium),
-                    Text(g.description),
+                    Text('التقدم: ${(g.progress * 100).round()}% - ${g.createdAt.day}/${g.createdAt.month}/${g.createdAt.year}'),
                     const SizedBox(height: 8),
                     LinearProgressIndicator(value: g.progress),
                     Text('${(g.progress * 100).round()}%'),
@@ -1131,7 +1131,6 @@ class GoalsTimelineScreen extends StatelessWidget {
             label: 'إضافة هدف',
             onTap: () {
               final title = TextEditingController();
-              final desc = TextEditingController();
               showDialog(
                 context: context,
                 builder: (_) => AlertDialog(
@@ -1140,7 +1139,6 @@ class GoalsTimelineScreen extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       TextField(controller: title, decoration: const InputDecoration(labelText: 'العنوان')),
-                      TextField(controller: desc, decoration: const InputDecoration(labelText: 'الوصف')),
                     ],
                   ),
                   actions: [
@@ -1148,7 +1146,7 @@ class GoalsTimelineScreen extends StatelessWidget {
                       onPressed: () async {
                         if (title.text.isNotEmpty) {
                           final id = const Uuid().v4();
-                          await box.put(id, Goal(id: id, title: title.text, description: desc.text, progress: 0.2).toMap());
+                          await box.put(id, Goal(id: id, title: title.text, progress: 0.2, createdAt: DateTime.now()).toMap());
                         }
                         if (context.mounted) Navigator.pop(context);
                       },
@@ -1183,7 +1181,7 @@ class JournalCalendarScreen extends StatelessWidget {
           for (final j in entries)
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
-              child: NCard(child: ListTile(title: Text(j.title), subtitle: Text(j.content), trailing: Text(j.mood))),
+              child: NCard(child: ListTile(title: Text(j.content.length > 30 ? j.content.substring(0,30)+'...' : j.content), subtitle: Text(j.mood), trailing: Text('${j.date.day}/${j.date.month}'))),
             ),
           if (entries.isEmpty) const NCard(child: Text('لا توجد مذكرات')),
           const SizedBox(height: 12),
@@ -1208,7 +1206,7 @@ class JournalCalendarScreen extends StatelessWidget {
                       onPressed: () async {
                         if (title.text.isNotEmpty) {
                           final id = const Uuid().v4();
-                          await box.put(id, JournalEntry(id: id, title: title.text, content: content.text, date: DateTime.now()).toMap());
+                          await box.put(id, JournalEntry(id: id, content: content.text.isNotEmpty ? content.text : title.text, date: DateTime.now()).toMap());
                         }
                         if (context.mounted) Navigator.pop(context);
                       },
