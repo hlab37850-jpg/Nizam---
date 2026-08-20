@@ -200,14 +200,16 @@ class Debt {
 
   Map<String, dynamic> toMap() => {'id': id, 'name': name, 'amount': amount, 'type': type, 'date': date.toIso8601String(), 'paid': paid};
 
+
   factory Debt.fromMap(Map m) => Debt(
     id: m['id']?.toString() ?? '',
-    name: m['name']?.toString() ?? '',
+    name: (m['name'] ?? m['title'] ?? m['person'] ?? 'دين').toString(),
     amount: (m['amount'] as num?)?.toDouble() ?? 0,
     type: m['type']?.toString() ?? 'owe',
     date: DateTime.tryParse(m['date']?.toString() ?? '') ?? DateTime.now(),
     paid: m['paid'] == true,
   );
+
 }
 
 class VaultItem {

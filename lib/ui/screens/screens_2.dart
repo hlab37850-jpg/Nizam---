@@ -273,6 +273,7 @@ class DashboardScreen extends ConsumerWidget {
                           spacing: 8,
                           runSpacing: 8,
                           children: [
+
                             ActionChip(label: const Text('Kanban'), avatar: const Icon(LucideIcons.columns, size: 16), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const KanbanScreen()))),
                             ActionChip(label: const Text('المحافظ'), avatar: const Icon(LucideIcons.wallet, size: 16), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WalletsScreen()))),
                             ActionChip(label: const Text('الميزانيات'), avatar: const Icon(LucideIcons.pieChart, size: 16), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BudgetsScreen()))),
@@ -805,7 +806,7 @@ class DebtsScreen extends StatelessWidget {
           for (final d in items)
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
-              child: NCard(child: ListTile(title: Text(d.title), subtitle: Text('${d.person} - ${d.type}'), trailing: Text('${d.amount}'))),
+              child: NCard(child: ListTile(title: Text(d.name), subtitle: Text(d.type), trailing: Text('${d.amount}'), leading: Icon(d.paid ? LucideIcons.checkCircle : LucideIcons.clock, color: d.paid ? AppTheme.green : AppTheme.amber))),
             ),
           if (items.isEmpty) const NCard(child: Text('لا توجد ديون')),
           const SizedBox(height: 12),
@@ -843,7 +844,7 @@ class DebtsScreen extends StatelessWidget {
                           final a = double.tryParse(amount.text);
                           if (title.text.isNotEmpty && a != null) {
                             final id = const Uuid().v4();
-                            await box.put(id, Debt(id: id, title: title.text, amount: a, type: type, person: person.text).toMap());
+                            await box.put(id, Debt(id: id, name: title.text.isNotEmpty ? title.text : person.text, amount: a, type: type, date: DateTime.now()).toMap());
                           }
                           if (ctx.mounted) Navigator.pop(ctx);
                         },
@@ -1148,7 +1149,7 @@ class GoalsTimelineScreen extends StatelessWidget {
                       onPressed: () async {
                         if (title.text.isNotEmpty) {
                           final id = const Uuid().v4();
-                          await box.put(id, Goal(id: id, title: title.text, description: desc.text, progress: 0.2, createdAt: DateTime.now()).toMap());
+                          await box.put(id, Goal(id: id, title: title.text, description: desc.text, progress: 0.2).toMap());
                         }
                         if (context.mounted) Navigator.pop(context);
                       },

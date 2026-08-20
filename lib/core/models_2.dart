@@ -200,14 +200,16 @@ class Debt {
 
   Map<String, dynamic> toMap() => {'id': id, 'name': name, 'amount': amount, 'type': type, 'date': date.toIso8601String(), 'paid': paid};
 
+
   factory Debt.fromMap(Map m) => Debt(
     id: m['id']?.toString() ?? '',
-    name: m['name']?.toString() ?? '',
+    name: (m['name'] ?? m['title'] ?? m['person'] ?? 'دين').toString(),
     amount: (m['amount'] as num?)?.toDouble() ?? 0,
     type: m['type']?.toString() ?? 'owe',
     date: DateTime.tryParse(m['date']?.toString() ?? '') ?? DateTime.now(),
     paid: m['paid'] == true,
   );
+
 }
 
 class VaultItem {
@@ -231,17 +233,19 @@ class VaultItem {
 class Goal {
   final String id;
   final String title;
+  final String description;
   final double progress; // 0..1
   final DateTime createdAt;
   final DateTime? targetDate;
 
-  Goal({required this.id, required this.title, this.progress = 0, required this.createdAt, this.targetDate});
+  Goal({required this.id, required this.title, this.description = '', this.progress = 0, required this.createdAt, this.targetDate});
 
-  Map<String, dynamic> toMap() => {'id': id, 'title': title, 'progress': progress, 'createdAt': createdAt.toIso8601String(), 'targetDate': targetDate?.toIso8601String()};
+  Map<String, dynamic> toMap() => {'id': id, 'title': title, 'description': description, 'progress': progress, 'createdAt': createdAt.toIso8601String(), 'targetDate': targetDate?.toIso8601String()};
 
   factory Goal.fromMap(Map m) => Goal(
     id: m['id']?.toString() ?? '',
     title: m['title']?.toString() ?? '',
+    description: m['description']?.toString() ?? '',
     progress: (m['progress'] as num?)?.toDouble() ?? 0,
     createdAt: DateTime.tryParse(m['createdAt']?.toString() ?? '') ?? DateTime.now(),
     targetDate: m['targetDate'] != null ? DateTime.tryParse(m['targetDate'].toString()) : null,
@@ -250,16 +254,18 @@ class Goal {
 
 class JournalEntry {
   final String id;
+  final String title;
   final String content;
   final DateTime date;
   final String mood;
 
-  JournalEntry({required this.id, required this.content, required this.date, this.mood = 'neutral'});
+  JournalEntry({required this.id, this.title = '', required this.content, required this.date, this.mood = 'neutral'});
 
-  Map<String, dynamic> toMap() => {'id': id, 'content': content, 'date': date.toIso8601String(), 'mood': mood};
+  Map<String, dynamic> toMap() => {'id': id, 'title': title, 'content': content, 'date': date.toIso8601String(), 'mood': mood};
 
   factory JournalEntry.fromMap(Map m) => JournalEntry(
     id: m['id']?.toString() ?? '',
+    title: m['title']?.toString() ?? '',
     content: m['content']?.toString() ?? '',
     date: DateTime.tryParse(m['date']?.toString() ?? '') ?? DateTime.now(),
     mood: m['mood']?.toString() ?? 'neutral',
