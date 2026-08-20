@@ -77,7 +77,7 @@ class _OnboardingState extends State<OnboardingScreen> {
               child: PageView(
                 controller: _page,
                 onPageChanged: (i) => setState(() => _index = i),
-                children: const [
+                children: [
                   _OnboardingPage(title: 'نظامك الشخصي', desc: 'إدارة المهام والمال والعادات في مكان واحد بتصميم عربي أصيل.'),
                   _OnboardingPage(title: 'خصوصيتك أولاً', desc: 'بياناتك محلية ومشفرة بـ Hive + SecureStorage بدون تتبع.'),
                   _OnboardingPage(title: 'ابدأ الآن', desc: 'ابن يومك حول أهدافك الحقيقية مع Kanban و Pomodoro.'),
@@ -273,10 +273,11 @@ class DashboardScreen extends ConsumerWidget {
                           spacing: 8,
                           runSpacing: 8,
                           children: [
+
                             ActionChip(label: const Text('Kanban'), avatar: const Icon(LucideIcons.columns, size: 16), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const KanbanScreen()))),
                             ActionChip(label: const Text('المحافظ'), avatar: const Icon(LucideIcons.wallet, size: 16), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WalletsScreen()))),
                             ActionChip(label: const Text('الميزانيات'), avatar: const Icon(LucideIcons.pieChart, size: 16), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BudgetsScreen()))),
-                            ActionChip(label: const Text('الديون'), avatar: const Icon(LucideIcons.handCoins, size: 16), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DebtsScreen()))),
+                            ActionChip(label: const Text('الديون'), avatar: const Icon(LucideIcons.coins, size: 16), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DebtsScreen()))),
                             ActionChip(label: const Text('الصلاة'), avatar: const Icon(LucideIcons.moon, size: 16), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PrayerScreen()))),
                             ActionChip(label: const Text('الأهداف'), avatar: const Icon(LucideIcons.target, size: 16), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GoalsTimelineScreen()))),
                             ActionChip(label: const Text('المفكرة'), avatar: const Icon(LucideIcons.bookOpen, size: 16), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const JournalCalendarScreen()))),
@@ -805,7 +806,7 @@ class DebtsScreen extends StatelessWidget {
           for (final d in items)
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
-              child: NCard(child: ListTile(title: Text(d.title), subtitle: Text('${d.person} - ${d.type}'), trailing: Text('${d.amount}'))),
+              child: NCard(child: ListTile(title: Text(d.name), subtitle: Text(d.type), trailing: Text('${d.amount}'), leading: Icon(d.paid ? LucideIcons.checkCircle : LucideIcons.clock, color: d.paid ? AppTheme.green : AppTheme.amber))),
             ),
           if (items.isEmpty) const NCard(child: Text('لا توجد ديون')),
           const SizedBox(height: 12),
@@ -843,7 +844,7 @@ class DebtsScreen extends StatelessWidget {
                           final a = double.tryParse(amount.text);
                           if (title.text.isNotEmpty && a != null) {
                             final id = const Uuid().v4();
-                            await box.put(id, Debt(id: id, title: title.text, amount: a, type: type, person: person.text).toMap());
+                            await box.put(id, Debt(id: id, name: title.text.isNotEmpty ? title.text : person.text, amount: a, type: type, date: DateTime.now()).toMap());
                           }
                           if (ctx.mounted) Navigator.pop(ctx);
                         },

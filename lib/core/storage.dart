@@ -43,6 +43,11 @@ class Storage {
 
   static Box box(String name) => Hive.box(name);
 
+  static Future<String> exportToFile() async {
+    // professional: will be used with path_provider
+    return exportJson();
+  }
+
   static Future<String> exportJson() async {
     final map = <String, dynamic>{};
     for (final name in boxNames) {
