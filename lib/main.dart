@@ -4,6 +4,7 @@ import 'core/storage.dart';
 import 'core/theme.dart';
 import 'services/notifications.dart';
 import 'ui/screens/screens.dart';
+import 'providers/app_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -14,15 +15,16 @@ Future<void> main() async {
 
 class NizamApp extends ConsumerWidget {
   const NizamApp({super.key});
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final dark = ref.watch(themeProvider);
+    final isDark = ref.watch(themeProvider);
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Nizam OS',
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
-      themeMode: dark ? ThemeMode.dark : ThemeMode.light,
+      themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
       locale: const Locale('ar'),
       builder: (context, child) => Directionality(
         textDirection: TextDirection.rtl,
