@@ -1,0 +1,1 @@
+class AppConstants { static const boxes = ['tasks','projects','wallets','transactions','budgets','debts','habits','vault','goals','journals','notes','prayers']; }
