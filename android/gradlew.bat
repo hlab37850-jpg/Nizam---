@@ -1,1 +1,0 @@
-@rem gradle wrapper windows

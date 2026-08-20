@@ -7,11 +7,29 @@ pluginManagement {
         return flutterSdkPath
     }()
     includeBuild("$flutterSdkPath/packages/flutter_tools/gradle")
-    repositories { google(); mavenCentral(); gradlePluginPortal() }
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
 }
+
 plugins {
     id "dev.flutter.flutter-plugin-loader" version "1.0.0"
-    id "com.android.application" version "8.3.2" apply false
+    id "com.android.application" version "8.2.1" apply false
     id "org.jetbrains.kotlin.android" version "1.9.22" apply false
 }
+
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+    dependencies {
+        classpath 'org.codehaus.groovy:groovy-xml:3.0.22'
+        classpath 'org.codehaus.groovy:groovy-json:3.0.22'
+    }
+}
+
 include ":app"
