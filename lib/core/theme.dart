@@ -8,29 +8,45 @@ class AppTheme {
   static const lightBg = Color(0xFFFDFCF6);
   static const darkBg = Color(0xFF0A0A0B);
 
-  static ThemeData light() => ThemeData(
-    brightness: Brightness.light,
-    scaffoldBackgroundColor: lightBg,
-    colorScheme: ColorScheme.fromSeed(seedColor: purple, brightness: Brightness.light),
-    textTheme: GoogleFonts.tajawalTextTheme(),
-    useMaterial3: true,
-    cardTheme: CardTheme(
-      elevation: 0,
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-    ),
-  );
+  static ThemeData light() {
+    return ThemeData(
+      brightness: Brightness.light,
+      scaffoldBackgroundColor: lightBg,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: purple,
+        brightness: Brightness.light,
+      ),
+      textTheme: GoogleFonts.tajawalTextTheme(),
+      useMaterial3: true,
+      cardTheme: CardThemeData(
+        elevation: 0,
+        margin: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+        ),
+      ),
+    );
+  }
 
-  static ThemeData dark() => ThemeData(
-    brightness: Brightness.dark,
-    scaffoldBackgroundColor: darkBg,
-    colorScheme: ColorScheme.fromSeed(seedColor: purple, brightness: Brightness.dark),
-    textTheme: GoogleFonts.tajawalTextTheme(ThemeData.dark().textTheme),
-    useMaterial3: true,
-    cardTheme: CardTheme(
-      elevation: 0,
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-    ),
-  );
+  static ThemeData dark() {
+    return ThemeData(
+      brightness: Brightness.dark,
+      scaffoldBackgroundColor: darkBg,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: purple,
+        brightness: Brightness.dark,
+      ),
+      textTheme: GoogleFonts.tajawalTextTheme(
+        ThemeData.dark().textTheme,
+      ),
+      useMaterial3: true,
+      cardTheme: CardThemeData(
+        elevation: 0,
+        margin: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+        ),
+      ),
+    );
+  }
 }
