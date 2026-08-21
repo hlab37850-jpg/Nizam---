@@ -252,7 +252,6 @@ class DashboardScreen extends ConsumerWidget {
     final tasks = ref.watch(tasksProvider);
     final balance = ref.watch(financeProvider);
     final habits = Storage.box('habits').length;
-    final notes = Storage.box('notes').length;
     final done = tasks.where((task) => task.done).length;
     final weeklyTasks = <FlSpot>[];
     final today = DateTime.now();

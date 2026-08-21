@@ -1,29 +1,29 @@
 # Nizam OS — نظام التشغيل الشخصي
 
-تطبيق Flutter عربي RTL يعمل Offline-first ويستخدم Hive للتخزين المحلي مع مفتاح تشفير محفوظ في `flutter_secure_storage`.
+Flutter Android app designed for offline-first personal life management with Arabic RTL UI.
 
-## Build with GitHub Actions
+## GitHub Actions
 
-المشروع مجهز بملف:
-
-`.github/workflows/build-apk.yml`
-
-الـ workflow يعمل عند أي `push` وعلى `workflow_dispatch`، لذلك لا يعتمد على أن اسم الفرع هو `main`.
-
-### رفع المشروع
-
-1. أنشئ مستودع GitHub جديدًا.
-2. ارفع **محتويات هذا المجلد** إلى جذر المستودع، وليس ملف ZIP نفسه.
-3. تأكد أن المسار التالي موجود:
+The repository includes:
 
 ```text
 .github/workflows/build-apk.yml
 ```
 
-4. افتح تبويب **Actions**.
-5. اختر **Build Nizam APK**.
-6. اضغط **Run workflow** إذا كان زر التشغيل ظاهرًا، أو اعمل `git push` ليبدأ تلقائيًا.
-7. بعد نجاح البناء افتح نتيجة التشغيل ثم **Artifacts** ثم `nizam-os-apk`.
+The workflow:
+
+1. Checks out the repository.
+2. Installs Java 17.
+3. Installs Flutter 3.22.3.
+4. Verifies the project identity and Android files.
+5. Creates only a temporary Flutter seed project if the Gradle wrapper JAR is absent; it never regenerates or overwrites Nizam OS source files.
+6. Pins Gradle 8.4.
+7. Adds `groovy-xml:3.0.17` to the Flutter 3.22.3 Gradle plugin classpath to address the `groovy.xml.QName` compilation issue.
+8. Runs `flutter pub get`.
+9. Runs `flutter analyze --no-fatal-infos` and requires zero analyzer issues.
+10. Runs Flutter tests.
+11. Builds `app-release.apk`.
+12. Verifies that the APK exists and uploads it as `nizam-os-apk`.
 
 ## Build environment
 
@@ -31,31 +31,25 @@
 - Java 17
 - Android Gradle Plugin 8.3.2
 - Gradle 8.4
-- Android compile/target SDK 34
-- Dart package name: `nizam_os`
-- Android application id: `com.nizam.os`
+- compileSdk 34
+- targetSdk 34
+- minSdk 24
+- Kotlin 1.9.22
+
+## Uploading to GitHub
+
+Upload the **contents** of this project to the repository root. The repository must contain `.github/workflows/build-apk.yml` directly at the root.
+
+After pushing to GitHub:
+
+1. Open **Actions**.
+2. Select **Build Nizam APK**.
+3. Wait for the build to finish.
+4. Open the successful run.
+5. Download the **nizam-os-apk** artifact.
+
+The workflow also supports **Run workflow** from the Actions tab when the workflow file exists on the repository's default branch.
 
 ## Important
 
-لا يتم تشغيل `flutter create .` على المشروع نفسه داخل GitHub. يتم إنشاء مشروع Android مؤقت فقط لاستخراج `gradle-wrapper.jar`، ثم يُبنى المشروع الحالي كما هو. هذا يمنع اسم مستودع GitHub من أن يصبح اسم Dart غير صالح مثل `Nizam---`.
-
-الـ workflow يحتوي أيضًا على معالجة محددة لـ Flutter 3.22.3 لمشكلة `groovy.xml.QName` التي تظهر في بعض بيئات Gradle الحديثة.
-
-## Local build
-
-```bash
-flutter pub get
-flutter analyze --no-fatal-infos
-flutter test
-flutter build apk --release
-```
-
-الناتج:
-
-```text
-build/app/outputs/flutter-apk/app-release.apk
-```
-
-
-## Build compatibility note
-This project uses Flutter 3.22.3 with Gradle 8.4, Java 17, and explicitly adds Groovy XML 3.0.17 to the Flutter Gradle script classpath. Flutter 3.22.3 imports `groovy.xml.QName`; Gradle 8.4 uses Groovy 3.0.17, and the XML module is required for that class. The workflow verifies the expected Flutter source before patching and never relies on the GitHub repository folder name as the Dart project name.
+Do not rename `pubspec.yaml`'s package name. It is intentionally `nizam_os`, which satisfies Dart package naming rules. The visible Android application name is `Nizam OS` and is independent of the Dart package name.

@@ -16,6 +16,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -95,19 +96,8 @@ jobs:
                   raise SystemExit('Unexpected Flutter 3.22.3 Gradle plugin layout.')
               text = text.replace(marker, marker + '\n    ' + dep, 1)
               build.write_text(text)
-          # Also add the module to flutter.groovy buildscript for legacy/compatibility paths.
-          groovy = root / 'src/main/groovy/flutter.groovy'
-          g = groovy.read_text()
-          gdep = 'classpath("org.codehaus.groovy:groovy-xml:3.0.17")'
-          if gdep not in g:
-              marker = 'classpath("com.android.tools.build:gradle:7.3.0")'
-              if marker not in g:
-                  raise SystemExit('Unexpected Flutter 3.22.3 flutter.groovy layout.')
-              g = g.replace(marker, marker + '\n        ' + gdep, 1)
-              groovy.write_text(g)
           PY
           grep -Fq 'compileOnly("org.codehaus.groovy:groovy-xml:3.0.17")' "$FLUTTER_PLUGIN_DIR/build.gradle.kts"
-          grep -Fq 'classpath("org.codehaus.groovy:groovy-xml:3.0.17")' "$FLUTTER_PLUGIN_DIR/src/main/groovy/flutter.groovy"
 
       - name: Get dependencies
         run: flutter pub get
@@ -135,3 +125,4 @@ jobs:
           name: nizam-os-apk
           path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
+          retention-days: 7
