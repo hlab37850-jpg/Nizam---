@@ -3,7 +3,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 class NotificationService {
   static final plugin = FlutterLocalNotificationsPlugin();
   static Future<void> init() async {
-    const settings = AndroidInitializationSettings('@drawable/ic_notification');
+    const settings = AndroidInitializationSettings('@mipmap/ic_launcher');
     await plugin.initialize(const InitializationSettings(android: settings));
   }
   static Future<void> show(String title, String body) async {
