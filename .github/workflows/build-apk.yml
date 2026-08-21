@@ -75,30 +75,51 @@ jobs:
           PY
           grep -F 'gradle-8.4-bin.zip' android/gradle/wrapper/gradle-wrapper.properties
 
-      - name: Patch Flutter 3.22.3 Groovy QName dependency
+      - name: Patch Flutter 3.22.3 Groovy QName dependency (runner-only)
         shell: bash
         run: |
           set -euo pipefail
           export FLUTTER_GROOVY="$FLUTTER_ROOT/packages/flutter_tools/gradle/src/main/groovy/flutter.groovy"
           test -f "$FLUTTER_GROOVY"
           python3 - <<'PY'
-          import os
+          import os, re
           from pathlib import Path
+
           p = Path(os.environ["FLUTTER_GROOVY"])
           s = p.read_text()
-          old_import = "import groovy.xml.QName\n"
-          if old_import not in s:
-              raise SystemExit("Unexpected Flutter 3.22.3 flutter.groovy: QName import not found.")
-          s = s.replace(old_import, "", 1)
-          old = "if (entry.key instanceof QName) {\n                                             switch (entry.key.getLocalPart()) {"
-          new = "def localPart = entry.key?.respondsTo('getLocalPart') ? entry.key.getLocalPart() : entry.key?.toString()\n                                         if (localPart != null) {\n                                             switch (localPart) {"
-          if old not in s:
-              raise SystemExit("Unexpected Flutter 3.22.3 flutter.groovy: QName usage layout not found.")
-          s = s.replace(old, new, 1)
-          p.write_text(s)
+
+          # Flutter 3.22.3 imports groovy.xml.QName, but Gradle's compileGroovy
+          # classpath on the GitHub runner may not expose groovy-xml.
+          # Patch only the SDK copy on this runner; the Nizam OS source is untouched.
+          if "import groovy.xml.QName" not in s:
+              raise SystemExit("Flutter 3.22.3 source changed: QName import was not found.")
+
+          pattern = re.compile(
+              r"(?m)^\s*if\s*\(entry\.key\s+instanceof\s+QName\)\s*\{\s*"
+              r"switch\s*\(entry\.key\.getLocalPart\(\)\)\s*\{"
+          )
+          replacement = """                                         if (entry.key?.respondsTo('getLocalPart')) {
+                                             switch (entry.key.getLocalPart()) {"""
+
+          s2, count = pattern.subn(replacement, s, count=1)
+          if count != 1:
+              raise SystemExit("Flutter 3.22.3 QName usage block was not found in the expected form.")
+
+          s2 = s2.replace("import groovy.xml.QName\n", "", 1)
+          p.write_text(s2)
+
+          # Structural verification: no compile-time QName symbol remains.
+          final_text = p.read_text()
+          if "import groovy.xml.QName" in final_text or "instanceof QName" in final_text:
+              raise SystemExit("QName compile-time reference still exists after patch.")
+          if "entry.key.getLocalPart()" not in final_text:
+              raise SystemExit("QName local-part access was lost during patch.")
           PY
-          ! grep -Fq 'import groovy.xml.QName' "$FLUTTER_GROOVY"
-          ! grep -Fq 'instanceof QName' "$FLUTTER_GROOVY"
+
+          grep -qF "if (entry.key?.respondsTo('getLocalPart'))" "$FLUTTER_GROOVY"
+          grep -qF "switch (entry.key.getLocalPart())" "$FLUTTER_GROOVY"
+          ! grep -qF "import groovy.xml.QName" "$FLUTTER_GROOVY"
+          ! grep -qF "instanceof QName" "$FLUTTER_GROOVY"
 
       - name: Get dependencies
         run: flutter pub get
