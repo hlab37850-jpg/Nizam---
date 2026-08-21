@@ -136,23 +136,29 @@ jobs:
                   "refusing unsafe SDK modification."
               )
 
-          deps = (
+          groovy_deps = (
               '    implementation("org.codehaus.groovy:groovy:3.0.17")\n'
               '    implementation("org.codehaus.groovy:groovy-xml:3.0.17")'
           )
 
           if "org.codehaus.groovy:groovy-xml:3.0.17" not in text:
-              text = text.replace(marker, marker + "\n" + deps, 1)
-              path.write_text(text)
+              text = text.replace(marker, marker + "\n" + groovy_deps, 1)
+
+          classpath_line = '    groovyClasspath = configurations.getByName("runtimeClasspath")'
+          task_header = 'tasks.withType<org.gradle.api.tasks.compile.GroovyCompile>().configureEach {'
+
+          if classpath_line not in text:
+              text = text.rstrip() + "\n\n" + task_header + "\n" + classpath_line + "\n}\n"
+
+          path.write_text(text)
 
           final_text = path.read_text()
           if "org.codehaus.groovy:groovy-xml:3.0.17" not in final_text:
               raise SystemExit("groovy-xml dependency was not added.")
+          if classpath_line not in final_text:
+              raise SystemExit("GroovyCompile classpath configuration was not added.")
 
-          source = Path(
-              path.parent / "src/main/groovy/flutter.groovy"
-          ).read_text()
-
+          source = Path(path.parent / "src/main/groovy/flutter.groovy").read_text()
           if "import groovy.xml.QName" not in source:
               raise SystemExit("Expected Flutter 3.22.3 QName import was not found.")
           if "new XmlParser()" not in source:
@@ -161,6 +167,7 @@ jobs:
 
           grep -F 'implementation("org.codehaus.groovy:groovy:3.0.17")' "$PLUGIN_BUILD"
           grep -F 'implementation("org.codehaus.groovy:groovy-xml:3.0.17")' "$PLUGIN_BUILD"
+          grep -F 'groovyClasspath = configurations.getByName("runtimeClasspath")' "$PLUGIN_BUILD"
 
       - name: Get Flutter dependencies
         shell: bash
@@ -188,6 +195,16 @@ jobs:
           set -euo pipefail
           chmod +x gradlew
           ./gradlew --version
+
+      - name: Verify Flutter Gradle plugin Groovy configuration
+        shell: bash
+        working-directory: android
+        run: |
+          set -euo pipefail
+          test -f "$FLUTTER_ROOT/packages/flutter_tools/gradle/build.gradle.kts"
+          grep -F 'org.codehaus.groovy:groovy-xml:3.0.17' "$FLUTTER_ROOT/packages/flutter_tools/gradle/build.gradle.kts"
+          grep -F 'groovyClasspath = configurations.getByName("runtimeClasspath")' "$FLUTTER_ROOT/packages/flutter_tools/gradle/build.gradle.kts"
+          ./gradlew :gradle:compileGroovy --stacktrace --no-daemon
 
       - name: Build release APK
         shell: bash
