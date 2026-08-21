@@ -7,7 +7,6 @@ import 'package:local_auth/local_auth.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../../core/storage.dart';
-import '../../core/models.dart';
 import '../../core/theme.dart';
 import '../../providers/app_provider.dart';
 
@@ -35,8 +34,12 @@ class _SplashState extends State<SplashScreen> {
   @override void initState() {
     super.initState();
     Timer(const Duration(milliseconds: 900), () {
-      if (mounted) Navigator.pushReplacement(context,
-        MaterialPageRoute(builder: (_) => const OnboardingScreen()));
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+        );
+      }
     });
   }
   @override Widget build(BuildContext context) => Scaffold(
@@ -279,7 +282,11 @@ class _FinanceState extends State<FinanceScreen> {
     double income = 0, expense = 0;
     for (final m in values) {
       final a = (m['amount'] as num?)?.toDouble() ?? 0;
-      if (m['type'] == 'income') income += a; else expense += a;
+      if (m['type'] == 'income') {
+        income += a;
+      } else {
+        expense += a;
+      }
     }
     return Scaffold(appBar: AppBar(title: const Text('Finance OS'), actions: [
       IconButton(onPressed: addTransaction, icon: const Icon(Icons.add))
@@ -355,7 +362,7 @@ class _HabitsState extends State<HabitsScreen> {
         ListTile(title: const Text('الماء'), trailing: Text('${Storage.box('water').get('today', defaultValue: 0)} كوب')),
         ListTile(title: const Text('النوم'), trailing: Text('${Storage.box('sleep').get('last', defaultValue: 0)} ساعة')),
       ])),
-    ]);
+    ]));
   }
 }
 class PrayerTile extends StatefulWidget {
@@ -433,8 +440,11 @@ class _SearchState extends State<SearchScreen> {
     final all = <String>[];
     for (final boxName in Storage.boxNames) {
       for (final value in Storage.box(boxName).values) {
-        if (value is Map) all.addAll(value.values.map((v) => '$v'));
-        else all.add('$value');
+        if (value is Map) {
+          all.addAll(value.values.map((v) => '$v'));
+        } else {
+          all.add('$value');
+        }
       }
     }
     setState(() => results = q.trim().isEmpty ? [] : all.where((x) => x.toLowerCase().contains(q.toLowerCase())).take(50).toList());
