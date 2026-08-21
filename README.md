@@ -55,3 +55,7 @@ flutter build apk --release
 ```text
 build/app/outputs/flutter-apk/app-release.apk
 ```
+
+
+## Build compatibility note
+This project uses Flutter 3.22.3 with Gradle 8.4, Java 17, and explicitly adds Groovy XML 3.0.17 to the Flutter Gradle script classpath. Flutter 3.22.3 imports `groovy.xml.QName`; Gradle 8.4 uses Groovy 3.0.17, and the XML module is required for that class. The workflow verifies the expected Flutter source before patching and never relies on the GitHub repository folder name as the Dart project name.
