@@ -5,14 +5,29 @@ plugins {
 }
 android {
     namespace = "com.nizam.os"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 34
     ndkVersion = flutter.ndkVersion
     defaultConfig {
         applicationId = "com.nizam.os"
         minSdk = 24
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 34
+        multiDexEnabled true
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
+    compileOptions {
+        coreLibraryDesugaringEnabled true
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = JavaVersion.VERSION_17.toString()
+    }
 }
 flutter { source = "../.." }
+
+
+dependencies {
+    implementation "androidx.appcompat:appcompat:1.7.0"
+    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.0.4"
+}
