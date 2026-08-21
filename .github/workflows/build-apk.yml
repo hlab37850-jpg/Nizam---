@@ -37,12 +37,13 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Verify Flutter and project identity
+      - name: Verify Flutter and project
         shell: bash
         run: |
           set -euo pipefail
           flutter --version
           dart --version
+
           test -f pubspec.yaml
           test -f lib/main.dart
           test -d android
@@ -64,7 +65,7 @@ jobs:
           WRAPPER_JAR="$WRAPPER_DIR/gradle-wrapper.jar"
 
           if [ ! -s "$WRAPPER_JAR" ]; then
-            echo "Gradle wrapper JAR is missing. Creating a temporary valid Flutter Android project to obtain it."
+            echo "Gradle wrapper JAR is missing. Creating a temporary Flutter Android project only to obtain the wrapper JAR."
 
             TMP_DIR="$(mktemp -d)"
             trap 'rm -rf "$TMP_DIR"' EXIT
@@ -99,19 +100,15 @@ jobs:
 
           for line in text.splitlines():
               if line.startswith("distributionUrl="):
-                  line = (
-                      "distributionUrl="
-                      "https\\://services.gradle.org/distributions/"
-                      "gradle-8.4-bin.zip"
-                  )
+                  line = "distributionUrl=https\\://services.gradle.org/distributions/gradle-8.4-bin.zip"
               lines.append(line)
 
-          path.write_text("\\n".join(lines) + "\\n")
+          path.write_text("\n".join(lines) + "\n")
           PY
 
           grep -F "gradle-8.4-bin.zip" android/gradle/wrapper/gradle-wrapper.properties
 
-      - name: Fix Flutter 3.22.3 Groovy XML dependency
+      - name: Configure Flutter 3.22.3 Groovy XML correctly
         shell: bash
         run: |
           set -euo pipefail
@@ -130,33 +127,43 @@ jobs:
           text = path.read_text()
 
           marker = '    compileOnly("com.android.tools.build:gradle:7.3.0")'
+          dependency = '    implementation(localGroovy())'
+
           if marker not in text:
               raise SystemExit(
-                  "Unexpected Flutter 3.22.3 Gradle plugin layout; "
-                  "refusing unsafe SDK modification."
+                  "Unexpected Flutter 3.22.3 Gradle plugin layout; refusing unsafe SDK modification."
               )
 
-          groovy_deps = (
-              '    implementation("org.codehaus.groovy:groovy:3.0.17")\n'
-              '    implementation("org.codehaus.groovy:groovy-xml:3.0.17")'
+          # Flutter 3.22.3 compiles flutter.groovy and uses groovy.xml.QName/XmlParser.
+          # Gradle 8.4 distributes Groovy 3.0.17 and localGroovy() includes groovy-xml.
+          # Add the Gradle-bundled Groovy exactly once to the plugin implementation classpath.
+          if dependency not in text:
+              text = text.replace(marker, marker + "\n" + dependency, 1)
+
+          # Remove any remnants of the previous incorrect patches if a runner cache ever contains them.
+          for bad in [
+              '    implementation("org.codehaus.groovy:groovy:3.0.17")\n',
+              '    implementation("org.codehaus.groovy:groovy-xml:3.0.17")\n',
+          ]:
+              text = text.replace(bad, "")
+
+          # The previous workaround incorrectly changed GroovyCompile.groovyClasspath.
+          text = text.replace(
+              '\n\ntasks.withType<org.gradle.api.tasks.compile.GroovyCompile>().configureEach {\n'
+              '    groovyClasspath = configurations.getByName("runtimeClasspath")\n'
+              '}\n',
+              '\n'
           )
-
-          if "org.codehaus.groovy:groovy-xml:3.0.17" not in text:
-              text = text.replace(marker, marker + "\n" + groovy_deps, 1)
-
-          classpath_line = '    groovyClasspath = configurations.getByName("runtimeClasspath")'
-          task_header = 'tasks.withType<org.gradle.api.tasks.compile.GroovyCompile>().configureEach {'
-
-          if classpath_line not in text:
-              text = text.rstrip() + "\n\n" + task_header + "\n" + classpath_line + "\n}\n"
 
           path.write_text(text)
 
           final_text = path.read_text()
-          if "org.codehaus.groovy:groovy-xml:3.0.17" not in final_text:
-              raise SystemExit("groovy-xml dependency was not added.")
-          if classpath_line not in final_text:
-              raise SystemExit("GroovyCompile classpath configuration was not added.")
+          if dependency not in final_text:
+              raise SystemExit("implementation(localGroovy()) was not added.")
+          if 'groovy-xml:3.0.17' in final_text:
+              raise SystemExit("Conflicting manual Groovy 3.0.17 dependency remains.")
+          if 'groovyClasspath = configurations.getByName("runtimeClasspath")' in final_text:
+              raise SystemExit("Incorrect GroovyCompile classpath patch remains.")
 
           source = Path(path.parent / "src/main/groovy/flutter.groovy").read_text()
           if "import groovy.xml.QName" not in source:
@@ -165,9 +172,13 @@ jobs:
               raise SystemExit("Expected Flutter 3.22.3 XmlParser usage was not found.")
           PY
 
-          grep -F 'implementation("org.codehaus.groovy:groovy:3.0.17")' "$PLUGIN_BUILD"
-          grep -F 'implementation("org.codehaus.groovy:groovy-xml:3.0.17")' "$PLUGIN_BUILD"
-          grep -F 'groovyClasspath = configurations.getByName("runtimeClasspath")' "$PLUGIN_BUILD"
+          echo "=== Flutter 3.22.3 Gradle plugin dependencies ==="
+          grep -F 'implementation(localGroovy())' "$PLUGIN_BUILD"
+
+          if grep -Fq 'groovy-xml:3.0.17' "$PLUGIN_BUILD"; then
+            echo "ERROR: conflicting Groovy 3.0.17 dependency detected"
+            exit 1
+          fi
 
       - name: Get Flutter dependencies
         shell: bash
@@ -188,22 +199,21 @@ jobs:
           set -euo pipefail
           flutter test
 
-      - name: Check Gradle environment
+      - name: Verify exact Gradle version and Groovy XML classpath
         shell: bash
         working-directory: android
         run: |
           set -euo pipefail
+
           chmod +x gradlew
+
           ./gradlew --version
 
-      - name: Verify Flutter Gradle plugin Groovy configuration
-        shell: bash
-        working-directory: android
-        run: |
-          set -euo pipefail
-          test -f "$FLUTTER_ROOT/packages/flutter_tools/gradle/build.gradle.kts"
-          grep -F 'org.codehaus.groovy:groovy-xml:3.0.17' "$FLUTTER_ROOT/packages/flutter_tools/gradle/build.gradle.kts"
-          grep -F 'groovyClasspath = configurations.getByName("runtimeClasspath")' "$FLUTTER_ROOT/packages/flutter_tools/gradle/build.gradle.kts"
+          GRADLE_VERSION="$(./gradlew --version | awk '/Gradle /{print $2; exit}')"
+          echo "Gradle version: $GRADLE_VERSION"
+          test "$GRADLE_VERSION" = "8.4"
+
+          echo "Compiling Flutter Gradle plugin before APK build..."
           ./gradlew :gradle:compileGroovy --stacktrace --no-daemon
 
       - name: Build release APK
@@ -216,8 +226,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
           APK="build/app/outputs/flutter-apk/app-release.apk"
           test -s "$APK"
+
+          echo "Release APK generated successfully:"
           ls -lh "$APK"
 
       - name: Upload APK
