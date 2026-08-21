@@ -37,7 +37,7 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Verify Flutter and project
+      - name: Verify Flutter and project identity
         shell: bash
         run: |
           set -euo pipefail
@@ -49,25 +49,55 @@ jobs:
           test -f android/settings.gradle
           test -f android/app/build.gradle
           test -f android/gradle/wrapper/gradle-wrapper.properties
-          test -s android/gradle/wrapper/gradle-wrapper.jar
           test -f .github/workflows/build-apk.yml
 
           PACKAGE_NAME="$(awk '/^name:/{print $2; exit}' pubspec.yaml)"
+          echo "Dart package: $PACKAGE_NAME"
           test "$PACKAGE_NAME" = "nizam_os"
+
+      - name: Ensure Gradle wrapper JAR
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          WRAPPER_DIR="android/gradle/wrapper"
+          WRAPPER_JAR="$WRAPPER_DIR/gradle-wrapper.jar"
+
+          if [ ! -s "$WRAPPER_JAR" ]; then
+            echo "Gradle wrapper JAR is missing. Creating a temporary valid Flutter Android project to obtain it."
+
+            TMP_DIR="$(mktemp -d)"
+            trap 'rm -rf "$TMP_DIR"' EXIT
+
+            flutter create \
+              --project-name nizam_os \
+              --platforms=android \
+              --org com.nizam \
+              --no-pub \
+              "$TMP_DIR/seed"
+
+            test -s "$TMP_DIR/seed/android/gradle/wrapper/gradle-wrapper.jar"
+
+            mkdir -p "$WRAPPER_DIR"
+            cp "$TMP_DIR/seed/android/gradle/wrapper/gradle-wrapper.jar" "$WRAPPER_JAR"
+          fi
+
+          test -s "$WRAPPER_JAR"
+          ls -lh "$WRAPPER_JAR"
 
       - name: Pin Gradle 8.4
         shell: bash
         run: |
           set -euo pipefail
+
           python3 - <<'PY'
           from pathlib import Path
 
           path = Path("android/gradle/wrapper/gradle-wrapper.properties")
-          if not path.exists():
-              raise SystemExit("gradle-wrapper.properties not found")
-
+          text = path.read_text()
           lines = []
-          for line in path.read_text().splitlines():
+
+          for line in text.splitlines():
               if line.startswith("distributionUrl="):
                   line = (
                       "distributionUrl="
@@ -76,8 +106,9 @@ jobs:
                   )
               lines.append(line)
 
-          path.write_text("\n".join(lines) + "\n")
+          path.write_text("\\n".join(lines) + "\\n")
           PY
+
           grep -F "gradle-8.4-bin.zip" android/gradle/wrapper/gradle-wrapper.properties
 
       - name: Fix Flutter 3.22.3 Groovy XML dependency
@@ -99,17 +130,12 @@ jobs:
           text = path.read_text()
 
           marker = '    compileOnly("com.android.tools.build:gradle:7.3.0")'
-
           if marker not in text:
               raise SystemExit(
                   "Unexpected Flutter 3.22.3 Gradle plugin layout; "
-                  "refusing an unsafe SDK modification."
+                  "refusing unsafe SDK modification."
               )
 
-          # Flutter 3.22.3's flutter.groovy uses groovy.xml.QName and XmlParser.
-          # Gradle's Groovy base plugin does not automatically add the separate
-          # groovy-xml module to the compile classpath. Add the exact Groovy
-          # 3.0.17 modules shipped by Gradle 8.4. Do not edit flutter.groovy.
           deps = (
               '    implementation("org.codehaus.groovy:groovy:3.0.17")\n'
               '    implementation("org.codehaus.groovy:groovy-xml:3.0.17")'
@@ -120,7 +146,6 @@ jobs:
               path.write_text(text)
 
           final_text = path.read_text()
-
           if "org.codehaus.groovy:groovy-xml:3.0.17" not in final_text:
               raise SystemExit("groovy-xml dependency was not added.")
 
@@ -130,17 +155,14 @@ jobs:
 
           if "import groovy.xml.QName" not in source:
               raise SystemExit("Expected Flutter 3.22.3 QName import was not found.")
-
           if "new XmlParser()" not in source:
               raise SystemExit("Expected Flutter 3.22.3 XmlParser usage was not found.")
           PY
 
           grep -F 'implementation("org.codehaus.groovy:groovy:3.0.17")' "$PLUGIN_BUILD"
           grep -F 'implementation("org.codehaus.groovy:groovy-xml:3.0.17")' "$PLUGIN_BUILD"
-          grep -F 'import groovy.xml.QName' "$PLUGIN_SOURCE"
-          grep -F 'new XmlParser()' "$PLUGIN_SOURCE"
 
-      - name: Get dependencies
+      - name: Get Flutter dependencies
         shell: bash
         run: |
           set -euo pipefail
@@ -159,7 +181,7 @@ jobs:
           set -euo pipefail
           flutter test
 
-      - name: Check Gradle
+      - name: Check Gradle environment
         shell: bash
         working-directory: android
         run: |
