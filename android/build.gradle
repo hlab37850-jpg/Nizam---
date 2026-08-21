@@ -1,7 +1,39 @@
 allprojects {
-    repositories { google(); mavenCentral() }
+    repositories {
+        google()
+        mavenCentral()
+    }
 }
-rootProject.buildDir = "../build"
-subprojects { project.buildDir = "${rootProject.buildDir}/${project.name}" }
-subprojects { project.evaluationDependsOn(":app") }
-tasks.register("clean", Delete) { delete rootProject.buildDir }
+
+rootProject.buildDir = '../build'
+subprojects {
+    project.buildDir = "${rootProject.buildDir}/${project.name}"
+}
+subprojects {
+    project.evaluationDependsOn(':app')
+}
+
+tasks.register("clean", Delete) {
+    delete rootProject.buildDir
+}
+
+// Proper Groovy classpath configuration for Flutter's Gradle plugin
+// Ensures groovy.xml.QName and groovy.xml.XmlParser are available for :gradle:compileGroovy
+gradle.projectsEvaluated {
+    // Find the flutter_tools gradle project
+    def flutterGradleProject = gradle.rootProject.findProject(":gradle") ?: 
+                               allprojects.find { it.name == "gradle" }
+    
+    if (flutterGradleProject != null) {
+        flutterGradleProject.tasks.withType(GroovyCompile).configureEach {
+            groovyClasspath = files(localGroovy())
+        }
+    }
+}
+
+// Also configure for any project that has GroovyCompile tasks
+allprojects {
+    tasks.withType(GroovyCompile).configureEach {
+        groovyClasspath = files(localGroovy())
+    }
+}

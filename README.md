@@ -1,55 +1,55 @@
-# Nizam OS — نظام التشغيل الشخصي
+# Nizam OS
 
-Flutter Android app designed for offline-first personal life management with Arabic RTL UI.
+نظام التشغيل الشخصي لإدارة الحياة — Offline-first و RTL عربي.
 
-## GitHub Actions
+## التشغيل محلياً
 
-The repository includes:
+يتطلب Flutter 3.22.3 وJava 17.
 
-```text
-.github/workflows/build-apk.yml
+```bash
+flutter pub get
+flutter run
 ```
 
-The workflow:
+## GitHub → APK
 
-1. Checks out the repository.
-2. Installs Java 17.
-3. Installs Flutter 3.22.3.
-4. Verifies the project identity and Android files.
-5. Creates only a temporary Flutter seed project if the Gradle wrapper JAR is absent; it never regenerates or overwrites Nizam OS source files.
-6. Pins Gradle 8.4.
-7. Adds `groovy-xml:3.0.17` to the Flutter 3.22.3 Gradle plugin classpath to address the `groovy.xml.QName` compilation issue.
-8. Runs `flutter pub get`.
-9. Runs `flutter analyze --no-fatal-infos` and requires zero analyzer issues.
-10. Runs Flutter tests.
-11. Builds `app-release.apk`.
-12. Verifies that the APK exists and uploads it as `nizam-os-apk`.
+1. أنشئ Repository جديداً على GitHub.
+2. ارفع **جميع ملفات المشروع** إلى الفرع `main`.
+3. افتح تبويب **Actions**.
+4. اختر `Build Nizam APK`.
+5. اضغط `Run workflow` أو ادفع commit جديداً إلى `main`.
+6. بعد نجاح البناء افتح الـ workflow ثم **Artifacts**.
+7. نزّل `nizam-os-apk`.
 
-## Build environment
+ملف البناء موجود هنا:
 
-- Flutter 3.22.3
-- Java 17
-- Android Gradle Plugin 8.3.2
-- Gradle 8.4
-- compileSdk 34
-- targetSdk 34
-- minSdk 24
-- Kotlin 1.9.22
+`.github/workflows/build-apk.yml`
 
-## Uploading to GitHub
+والـ APK الناتج:
 
-Upload the **contents** of this project to the repository root. The repository must contain `.github/workflows/build-apk.yml` directly at the root.
+`build/app/outputs/flutter-apk/app-release.apk`
 
-After pushing to GitHub:
+## البيانات
 
-1. Open **Actions**.
-2. Select **Build Nizam APK**.
-3. Wait for the build to finish.
-4. Open the successful run.
-5. Download the **nizam-os-apk** artifact.
+التطبيق لا يستخدم Firebase. البيانات محلية داخل Hive ومشفرة بمفتاح محفوظ في `flutter_secure_storage`.
 
-The workflow also supports **Run workflow** from the Actions tab when the workflow file exists on the repository's default branch.
+الصناديق المحلية:
+- settings
+- tasks
+- projects
+- transactions
+- wallets
+- budgets
+- debts
+- habits
+- prayers
+- vault
+- goals
+- journal
+- notes
+- water
+- sleep
 
-## Important
+## ملاحظة مهمة
 
-Do not rename `pubspec.yaml`'s package name. It is intentionally `nizam_os`, which satisfies Dart package naming rules. The visible Android application name is `Nizam OS` and is independent of the Dart package name.
+النسخة الأولى تحتوي على البنية التشغيلية والوظائف الأساسية الحقيقية للمهام والمال والعادات والخزنة والبحث والإعدادات. بعض الأنظمة المتقدمة مثل Kanban بالسحب، جدولة الإشعارات المتقدمة، تصدير ملف JSON فعلي إلى جهاز المستخدم، وتفاصيل الديون/الميزانيات/المفكرة تحتاج إكمال واجهاتها قبل اعتبارها نسخة إنتاجية نهائية.

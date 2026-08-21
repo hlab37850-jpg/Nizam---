@@ -1,9 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-    <application
+    <application android:icon="@mipmap/ic_launcher"
         android:label="Nizam OS"
-        android:icon="@drawable/ic_launcher"
         android:name="${applicationName}"
         android:enableOnBackInvokedCallback="true">
         <activity
