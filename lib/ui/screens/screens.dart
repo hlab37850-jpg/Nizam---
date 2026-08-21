@@ -195,7 +195,7 @@ class DashboardScreen extends ConsumerWidget {
             sliver: SliverToBoxAdapter(
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
+                children: const [
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
