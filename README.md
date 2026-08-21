@@ -53,3 +53,11 @@ flutter run
 ## ملاحظة مهمة
 
 النسخة الأولى تحتوي على البنية التشغيلية والوظائف الأساسية الحقيقية للمهام والمال والعادات والخزنة والبحث والإعدادات. بعض الأنظمة المتقدمة مثل Kanban بالسحب، جدولة الإشعارات المتقدمة، تصدير ملف JSON فعلي إلى جهاز المستخدم، وتفاصيل الديون/الميزانيات/المفكرة تحتاج إكمال واجهاتها قبل اعتبارها نسخة إنتاجية نهائية.
+
+## GitHub build compatibility
+
+This project is prepared for Flutter 3.22.3 and Java 17. The Android toolchain is pinned to AGP 8.3.0, Kotlin 1.9.24 and Gradle 8.5.
+
+The GitHub workflow also restores `gradle-wrapper.jar` on the clean runner and applies a narrowly scoped compatibility patch to Flutter 3.22.3's `flutter.groovy` for the `groovy.xml.QName` compile-time issue reported by Gradle. This does not modify the application source code.
+
+After pushing to `main`, open **GitHub → Actions → Build Nizam APK**. The generated APK is uploaded as the `nizam-os-apk` artifact.
