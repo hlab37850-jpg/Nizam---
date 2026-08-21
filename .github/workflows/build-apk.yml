@@ -75,51 +75,46 @@ jobs:
           PY
           grep -F 'gradle-8.4-bin.zip' android/gradle/wrapper/gradle-wrapper.properties
 
-      - name: Patch Flutter 3.22.3 Groovy QName dependency (runner-only)
+      - name: Restore Flutter 3.22.3 Gradle plugin Groovy classpath (runner-only)
         shell: bash
         run: |
           set -euo pipefail
-          export FLUTTER_GROOVY="$FLUTTER_ROOT/packages/flutter_tools/gradle/src/main/groovy/flutter.groovy"
-          test -f "$FLUTTER_GROOVY"
+          plugin_build="$FLUTTER_ROOT/packages/flutter_tools/gradle/build.gradle.kts"
+          plugin_source="$FLUTTER_ROOT/packages/flutter_tools/gradle/src/main/groovy/flutter.groovy"
+          test -f "$plugin_build"
+          test -f "$plugin_source"
+
+          # Flutter 3.22.3's Gradle plugin compiles flutter.groovy, which uses
+          # groovy.xml.QName and groovy.xml.XmlParser. Gradle 8.4's bundled
+          # Groovy is 3.0.17 and localGroovy() includes the groovy-xml module.
+          # Put that exact Gradle-bundled Groovy runtime on the plugin's
+          # implementation classpath. Do NOT modify flutter.groovy itself.
           python3 - <<'PY'
-          import os, re
           from pathlib import Path
-
-          p = Path(os.environ["FLUTTER_GROOVY"])
+          import os
+          root = Path(os.environ["FLUTTER_ROOT"])
+          p = root / "packages/flutter_tools/gradle/build.gradle.kts"
           s = p.read_text()
-
-          # Flutter 3.22.3 imports groovy.xml.QName, but Gradle's compileGroovy
-          # classpath on the GitHub runner may not expose groovy-xml.
-          # Patch only the SDK copy on this runner; the Nizam OS source is untouched.
-          if "import groovy.xml.QName" not in s:
-              raise SystemExit("Flutter 3.22.3 source changed: QName import was not found.")
-
-          pattern = re.compile(
-              r"(?m)^\s*if\s*\(entry\.key\s+instanceof\s+QName\)\s*\{\s*"
-              r"switch\s*\(entry\.key\.getLocalPart\(\)\)\s*\{"
-          )
-          replacement = """                                         if (entry.key?.respondsTo('getLocalPart')) {
-                                             switch (entry.key.getLocalPart()) {"""
-
-          s2, count = pattern.subn(replacement, s, count=1)
-          if count != 1:
-              raise SystemExit("Flutter 3.22.3 QName usage block was not found in the expected form.")
-
-          s2 = s2.replace("import groovy.xml.QName\n", "", 1)
-          p.write_text(s2)
-
-          # Structural verification: no compile-time QName symbol remains.
+          if 'implementation(localGroovy())' not in s:
+              marker = '    compileOnly("com.android.tools.build:gradle:7.3.0")'
+              if marker not in s:
+                  raise SystemExit('Flutter 3.22.3 build.gradle.kts has unexpected dependency layout; refusing to modify it.')
+              s = s.replace(marker, marker + '\n    implementation(localGroovy())', 1)
+              p.write_text(s)
           final_text = p.read_text()
-          if "import groovy.xml.QName" in final_text or "instanceof QName" in final_text:
-              raise SystemExit("QName compile-time reference still exists after patch.")
-          if "entry.key.getLocalPart()" not in final_text:
-              raise SystemExit("QName local-part access was lost during patch.")
+          if 'implementation(localGroovy())' not in final_text:
+              raise SystemExit('localGroovy() was not added to Flutter Gradle plugin classpath.')
+          # Verify the upstream Flutter source remains intact.
+          src = (root / "packages/flutter_tools/gradle/src/main/groovy/flutter.groovy").read_text()
+          if 'import groovy.xml.QName' not in src:
+              raise SystemExit('Flutter 3.22.3 source was unexpectedly modified or is not the expected SDK.')
+          if 'new XmlParser()' not in src:
+              raise SystemExit('Flutter 3.22.3 XmlParser source was unexpectedly modified or is not the expected SDK.')
           PY
 
-          grep -qF "if (entry.key?.respondsTo('getLocalPart'))" "$FLUTTER_GROOVY"
-          grep -qF "switch (entry.key.getLocalPart())" "$FLUTTER_GROOVY"
-          ! grep -qF "import groovy.xml.QName" "$FLUTTER_GROOVY"
-          ! grep -qF "instanceof QName" "$FLUTTER_GROOVY"
+          grep -qF 'implementation(localGroovy())' "$plugin_build"
+          grep -qF 'import groovy.xml.QName' "$plugin_source"
+          grep -qF 'new XmlParser()' "$plugin_source"
 
       - name: Get dependencies
         run: flutter pub get
