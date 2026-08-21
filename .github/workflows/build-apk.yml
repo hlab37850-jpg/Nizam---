@@ -89,7 +89,7 @@ jobs:
           root = Path(os.environ['FLUTTER_PLUGIN_DIR'])
           build = root / 'build.gradle.kts'
           text = build.read_text()
-          dep = 'compileOnly("org.codehaus.groovy:groovy-xml:3.0.17")'
+          dep = 'implementation("org.codehaus.groovy:groovy-xml:3.0.17")'
           if dep not in text:
               marker = 'compileOnly("com.android.tools.build:gradle:7.3.0")'
               if marker not in text:
@@ -97,7 +97,7 @@ jobs:
               text = text.replace(marker, marker + '\n    ' + dep, 1)
               build.write_text(text)
           PY
-          grep -Fq 'compileOnly("org.codehaus.groovy:groovy-xml:3.0.17")' "$FLUTTER_PLUGIN_DIR/build.gradle.kts"
+          grep -Fq 'implementation("org.codehaus.groovy:groovy-xml:3.0.17")' "$FLUTTER_PLUGIN_DIR/build.gradle.kts"
 
       - name: Get dependencies
         run: flutter pub get
