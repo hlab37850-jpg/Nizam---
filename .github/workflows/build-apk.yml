@@ -57,28 +57,29 @@ jobs:
         run: |
           set -euo pipefail
           FLUTTER_ROOT="${FLUTTER_ROOT:?FLUTTER_ROOT was not provided by flutter-action}"
+          FLUTTER_PLUGIN_BUILD="$FLUTTER_ROOT/packages/flutter_tools/gradle/build.gradle.kts"
           FLUTTER_GROOVY="$FLUTTER_ROOT/packages/flutter_tools/gradle/src/main/groovy/flutter.groovy"
+          test -f "$FLUTTER_PLUGIN_BUILD"
           test -f "$FLUTTER_GROOVY"
-          python3 - "$FLUTTER_GROOVY" <<'PY'
+          grep -Fq 'import groovy.xml.QName' "$FLUTTER_GROOVY"
+          python3 - "$FLUTTER_PLUGIN_BUILD" <<'PY'
           from pathlib import Path
           import sys
           path = Path(sys.argv[1])
           text = path.read_text(encoding="utf-8")
-          required_import = "import groovy.xml.QName"
-          required_classpath = 'classpath("org.codehaus.groovy:groovy-xml:3.0.17")'
-          if required_import not in text:
-              raise SystemExit("Flutter 3.22.3 flutter.groovy does not contain the expected QName import; refusing to patch an unexpected SDK.")
-          if required_classpath not in text:
-              marker = 'classpath("com.android.tools.build:gradle:7.3.0")'
+          dependency = 'implementation("org.codehaus.groovy:groovy-xml:3.0.17")'
+          if dependency not in text:
+              marker = 'compileOnly("com.android.tools.build:gradle:7.3.0")'
               if marker not in text:
-                  raise SystemExit("Expected Flutter 3.22.3 buildscript classpath marker was not found.")
-              text = text.replace(marker, marker + "\n        " + required_classpath, 1)
+                  raise SystemExit("Flutter 3.22.3 Gradle plugin build file has an unexpected dependency layout; refusing to patch it.")
+              text = text.replace(marker, marker + "\n    " + dependency, 1)
               path.write_text(text, encoding="utf-8")
-          if required_classpath not in path.read_text(encoding="utf-8"):
-              raise SystemExit("groovy-xml dependency was not installed into Flutter Gradle tooling.")
-          print("Verified QName import and added Groovy XML 3.0.17 to Flutter Gradle tooling.")
+          if dependency not in path.read_text(encoding="utf-8"):
+              raise SystemExit("groovy-xml dependency was not added to the Flutter Gradle plugin classpath.")
+          print("Verified Flutter 3.22.3 QName import and added groovy-xml 3.0.17 to the Gradle plugin implementation classpath.")
           PY
-          grep -n 'groovy.xml.QName\|groovy-xml:3.0.17' "$FLUTTER_GROOVY"
+          grep -n 'groovy.xml.QName' "$FLUTTER_GROOVY"
+          grep -n 'groovy-xml:3.0.17' "$FLUTTER_PLUGIN_BUILD"
 
       - name: Verify project identity
         shell: bash
