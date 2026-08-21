@@ -1,10 +1,9 @@
-name: Build Nizam OS APK
+name: Build Nizam APK
 
 on:
   push:
     branches:
       - '**'
-  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -16,8 +15,10 @@ concurrency:
 
 jobs:
   build:
+    name: Build Nizam OS APK
     runs-on: ubuntu-latest
     timeout-minutes: 30
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -27,79 +28,163 @@ jobs:
         with:
           distribution: zulu
           java-version: '17'
+          cache: gradle
 
-      - name: Setup Flutter 3.24.5
+      - name: Setup Flutter 3.22.3
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.5'
+          flutter-version: '3.22.3'
           channel: stable
           cache: true
 
-      - name: Verify project identity
+      - name: Verify Flutter and project
         shell: bash
         run: |
           set -euo pipefail
           flutter --version
-          test "$(awk '/^name:/{print $2; exit}' pubspec.yaml)" = "nizam_os"
+          dart --version
+          test -f pubspec.yaml
           test -f lib/main.dart
+          test -d android
           test -f android/settings.gradle
           test -f android/app/build.gradle
+          test -f android/gradle/wrapper/gradle-wrapper.properties
+          test -s android/gradle/wrapper/gradle-wrapper.jar
+          test -f .github/workflows/build-apk.yml
 
-      - name: Ensure Gradle wrapper jar
-        shell: bash
-        run: |
-          set -euo pipefail
-          JAR=android/gradle/wrapper/gradle-wrapper.jar
-          if [ ! -f "$JAR" ] || [ ! -s "$JAR" ] || [ $(stat -c%s "$JAR" 2>/dev/null || wc -c < "$JAR") -lt 5000 ]; then
-            TMPDIR=$(mktemp -d)
-            flutter create --project-name nizam_os --platforms=android --org com.nizam --no-pub "$TMPDIR/seed"
-            mkdir -p android/gradle/wrapper
-            cp "$TMPDIR/seed/android/gradle/wrapper/gradle-wrapper.jar" "$JAR"
-            rm -rf "$TMPDIR"
-          fi
-          test -s "$JAR"
-          ls -lh android/gradle/wrapper/
+          PACKAGE_NAME="$(awk '/^name:/{print $2; exit}' pubspec.yaml)"
+          test "$PACKAGE_NAME" = "nizam_os"
 
       - name: Pin Gradle 8.4
         shell: bash
         run: |
           set -euo pipefail
-          PROP=android/gradle/wrapper/gradle-wrapper.properties
-          sed -i 's|distributionUrl=.*|distributionUrl=https\://services.gradle.org/distributions/gradle-8.4-bin.zip|' "$PROP"
-          cat "$PROP"
+          python3 - <<'PY'
+          from pathlib import Path
 
-      - name: Verify Groovy fix
+          path = Path("android/gradle/wrapper/gradle-wrapper.properties")
+          if not path.exists():
+              raise SystemExit("gradle-wrapper.properties not found")
+
+          lines = []
+          for line in path.read_text().splitlines():
+              if line.startswith("distributionUrl="):
+                  line = (
+                      "distributionUrl="
+                      "https\\://services.gradle.org/distributions/"
+                      "gradle-8.4-bin.zip"
+                  )
+              lines.append(line)
+
+          path.write_text("\n".join(lines) + "\n")
+          PY
+          grep -F "gradle-8.4-bin.zip" android/gradle/wrapper/gradle-wrapper.properties
+
+      - name: Fix Flutter 3.22.3 Groovy XML dependency
         shell: bash
         run: |
           set -euo pipefail
-          grep -q "groovyClasspath" android/settings.gradle
-          echo "Groovy fix present"
 
-      - name: Install dependencies
-        run: flutter pub get
+          PLUGIN_BUILD="$FLUTTER_ROOT/packages/flutter_tools/gradle/build.gradle.kts"
+          PLUGIN_SOURCE="$FLUTTER_ROOT/packages/flutter_tools/gradle/src/main/groovy/flutter.groovy"
 
-      - name: Analyze code
-        run: flutter analyze
+          test -f "$PLUGIN_BUILD"
+          test -f "$PLUGIN_SOURCE"
 
-      - name: Run tests
-        run: flutter test
+          python3 - "$PLUGIN_BUILD" <<'PY'
+          from pathlib import Path
+          import sys
+
+          path = Path(sys.argv[1])
+          text = path.read_text()
+
+          marker = '    compileOnly("com.android.tools.build:gradle:7.3.0")'
+
+          if marker not in text:
+              raise SystemExit(
+                  "Unexpected Flutter 3.22.3 Gradle plugin layout; "
+                  "refusing an unsafe SDK modification."
+              )
+
+          # Flutter 3.22.3's flutter.groovy uses groovy.xml.QName and XmlParser.
+          # Gradle's Groovy base plugin does not automatically add the separate
+          # groovy-xml module to the compile classpath. Add the exact Groovy
+          # 3.0.17 modules shipped by Gradle 8.4. Do not edit flutter.groovy.
+          deps = (
+              '    implementation("org.codehaus.groovy:groovy:3.0.17")\n'
+              '    implementation("org.codehaus.groovy:groovy-xml:3.0.17")'
+          )
+
+          if "org.codehaus.groovy:groovy-xml:3.0.17" not in text:
+              text = text.replace(marker, marker + "\n" + deps, 1)
+              path.write_text(text)
+
+          final_text = path.read_text()
+
+          if "org.codehaus.groovy:groovy-xml:3.0.17" not in final_text:
+              raise SystemExit("groovy-xml dependency was not added.")
+
+          source = Path(
+              path.parent / "src/main/groovy/flutter.groovy"
+          ).read_text()
+
+          if "import groovy.xml.QName" not in source:
+              raise SystemExit("Expected Flutter 3.22.3 QName import was not found.")
+
+          if "new XmlParser()" not in source:
+              raise SystemExit("Expected Flutter 3.22.3 XmlParser usage was not found.")
+          PY
+
+          grep -F 'implementation("org.codehaus.groovy:groovy:3.0.17")' "$PLUGIN_BUILD"
+          grep -F 'implementation("org.codehaus.groovy:groovy-xml:3.0.17")' "$PLUGIN_BUILD"
+          grep -F 'import groovy.xml.QName' "$PLUGIN_SOURCE"
+          grep -F 'new XmlParser()' "$PLUGIN_SOURCE"
+
+      - name: Get dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter clean
+          flutter pub get
+
+      - name: Analyze Dart code
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter analyze --no-fatal-infos
+
+      - name: Run Flutter tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter test
+
+      - name: Check Gradle
+        shell: bash
+        working-directory: android
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew --version
 
       - name: Build release APK
-        run: flutter build apk --release --verbose
-
-      - name: Verify APK exists
         shell: bash
         run: |
           set -euo pipefail
-          APK=build/app/outputs/flutter-apk/app-release.apk
-          test -f "$APK"
+          flutter build apk --release
+
+      - name: Verify APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="build/app/outputs/flutter-apk/app-release.apk"
           test -s "$APK"
           ls -lh "$APK"
 
-      - name: Upload APK artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: nizam-os-apk
           path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 7

@@ -1,32 +1,62 @@
 import 'dart:async';
+import 'dart:convert';
+
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:fl_chart/fl_chart.dart';
+import 'package:local_auth/local_auth.dart';
 import 'package:table_calendar/table_calendar.dart';
-import 'package:lucide_icons/lucide_icons.dart';
 import 'package:uuid/uuid.dart';
+
 import '../../core/storage.dart';
-import '../../core/models.dart';
 import '../../core/theme.dart';
 import '../../providers/app_provider.dart';
 import '../../services/vault.dart';
 import '../widgets/common.dart';
 
-// 1. Splash
-class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
+class LogoMark extends StatelessWidget {
+  const LogoMark({super.key, this.size = 72});
+
+  final double size;
+
   @override
-  State<SplashScreen> createState() => _SplashState();
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: const BoxDecoration(
+        color: AppTheme.purple,
+        shape: BoxShape.circle,
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        'ن',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: size * 0.55,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
 }
 
-class _SplashState extends State<SplashScreen> {
+class SplashScreen extends StatefulWidget {
+  const SplashScreen({super.key});
+
+  @override
+  State<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(milliseconds: 1100), () {
-      if (mounted) {
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const OnboardingScreen()));
-      }
+    Timer(const Duration(milliseconds: 900), () {
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+      );
     });
   }
 
@@ -37,16 +67,17 @@ class _SplashState extends State<SplashScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 90,
-              height: 90,
-              decoration: const BoxDecoration(shape: BoxShape.circle, color: AppTheme.purple),
-              child: const Center(child: Text('ن', style: TextStyle(color: Colors.white, fontSize: 52, fontWeight: FontWeight.bold))),
+            const LogoMark(),
+            const SizedBox(height: 18),
+            Text(
+              'Nizam OS',
+              style: Theme.of(context)
+                  .textTheme
+                  .headlineMedium
+                  ?.copyWith(fontWeight: FontWeight.w800),
             ),
-            const SizedBox(height: 20),
-            Text('Nizam OS', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            Text('نظام التشغيل الشخصي', style: Theme.of(context).textTheme.bodyMedium),
+            const Text('نظام التشغيل الشخصي'),
             const SizedBox(height: 24),
             const CircularProgressIndicator(),
           ],
@@ -56,16 +87,43 @@ class _SplashState extends State<SplashScreen> {
   }
 }
 
-// 2. Onboarding
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
+
   @override
-  State<OnboardingScreen> createState() => _OnboardingState();
+  State<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
-class _OnboardingState extends State<OnboardingScreen> {
-  final PageController _page = PageController();
+class _OnboardingScreenState extends State<OnboardingScreen> {
+  final PageController _controller = PageController();
   int _index = 0;
+
+  static const List<Map<String, String>> _pages = [
+    {
+      'title': 'نظامك الشخصي',
+      'body': 'المهام والمال والعادات والأهداف والمعرفة في مكان واحد.',
+    },
+    {
+      'title': 'خصوصيتك أولاً',
+      'body': 'تخزين محلي مشفر وبدون Firebase أو اعتماد على الإنترنت.',
+    },
+    {
+      'title': 'ابدأ الآن',
+      'body': 'بياناتك محفوظة على جهازك ويمكن تصديرها كنسخة JSON.',
+    },
+  ];
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _finish() {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const AppShell()),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -74,41 +132,75 @@ class _OnboardingState extends State<OnboardingScreen> {
         child: Column(
           children: [
             Expanded(
-              child: PageView(
-                controller: _page,
-                onPageChanged: (i) => setState(() => _index = i),
-                children: const [
-                  _OnboardingPage(title: 'نظامك الشخصي', desc: 'إدارة المهام والمال والعادات في مكان واحد بتصميم عربي أصيل.'),
-                  _OnboardingPage(title: 'خصوصيتك أولاً', desc: 'بياناتك محلية ومشفرة بـ Hive + SecureStorage بدون تتبع.'),
-                  _OnboardingPage(title: 'ابدأ الآن', desc: 'ابن يومك حول أهدافك الحقيقية مع Kanban و Pomodoro.'),
-                ],
+              child: PageView.builder(
+                controller: _controller,
+                itemCount: _pages.length,
+                onPageChanged: (value) => setState(() => _index = value),
+                itemBuilder: (context, index) {
+                  final page = _pages[index];
+                  return Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const LogoMark(size: 120),
+                        const SizedBox(height: 36),
+                        Text(
+                          page['title']!,
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.w800),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          page['body']!,
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodyLarge,
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
             ),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(3, (x) => Container(
-                width: 10,
-                height: 10,
-                margin: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: x == _index ? AppTheme.purple : Colors.grey.shade300,
+              children: List.generate(
+                _pages.length,
+                (index) => AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  width: index == _index ? 24 : 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: index == _index
+                        ? AppTheme.purple
+                        : Theme.of(context).dividerColor,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
-              )),
+              ),
             ),
             Padding(
               padding: const EdgeInsets.all(24),
               child: SizedBox(
                 width: double.infinity,
-                child: NButton(
-                  label: _index == 2 ? 'دخول Nizam OS' : 'التالي',
-                  onTap: () {
-                    if (_index == 2) {
-                      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const Shell()));
+                child: FilledButton(
+                  onPressed: () {
+                    if (_index == _pages.length - 1) {
+                      _finish();
                     } else {
-                      _page.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+                      _controller.nextPage(
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.easeOut,
+                      );
                     }
                   },
+                  child: Text(
+                    _index == _pages.length - 1 ? 'ابدأ' : 'التالي',
+                  ),
                 ),
               ),
             ),
@@ -119,47 +211,20 @@ class _OnboardingState extends State<OnboardingScreen> {
   }
 }
 
-class _OnboardingPage extends StatelessWidget {
-  final String title;
-  final String desc;
-  const _OnboardingPage({required this.title, required this.desc});
+class AppShell extends StatefulWidget {
+  const AppShell({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(32),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 90,
-            height: 90,
-            decoration: const BoxDecoration(shape: BoxShape.circle, color: AppTheme.purple),
-            child: const Center(child: Text('ن', style: TextStyle(color: Colors.white, fontSize: 52, fontWeight: FontWeight.bold))),
-          ),
-          const SizedBox(height: 32),
-          Text(title, style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-          const SizedBox(height: 16),
-          Text(desc, style: Theme.of(context).textTheme.bodyLarge, textAlign: TextAlign.center),
-        ],
-      ),
-    );
-  }
+  State<AppShell> createState() => _AppShellState();
 }
 
-// 3. Shell
-class Shell extends StatefulWidget {
-  const Shell({super.key});
-  @override
-  State<Shell> createState() => _ShellState();
-}
-
-class _ShellState extends State<Shell> {
+class _AppShellState extends State<AppShell> {
   int _index = 0;
-  final _pages = const [
+
+  final List<Widget> _screens = const [
     DashboardScreen(),
-    TasksListScreen(),
-    FinanceDashboardScreen(),
+    TasksScreen(),
+    FinanceScreen(),
     HabitsScreen(),
     SettingsScreen(),
   ];
@@ -167,16 +232,18 @@ class _ShellState extends State<Shell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _pages[_index],
+      body: IndexedStack(index: _index, children: _screens),
       bottomNavigationBar: Padding(
-        padding: const EdgeInsets.fromLTRB(10, 0, 10, 12),
-        child: GlassNav(index: _index, onTap: (i) => setState(() => _index = i)),
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        child: GlassNav(
+          index: _index,
+          onTap: (value) => setState(() => _index = value),
+        ),
       ),
     );
   }
 }
 
-// 4. Dashboard
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
@@ -184,287 +251,353 @@ class DashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tasks = ref.watch(tasksProvider);
     final balance = ref.watch(financeProvider);
-    final done = tasks.where((t) => t.done).length;
-    final habits = ref.watch(habitsProvider);
+    final habits = Storage.box('habits').length;
+    final done = tasks.where((task) => task.done).length;
+    final weeklyTasks = <FlSpot>[];
+    final today = DateTime.now();
+    for (var i = 6; i >= 0; i--) {
+      final day = DateTime(today.year, today.month, today.day).subtract(Duration(days: i));
+      final count = tasks.where((task) {
+        final date = task.createdAt;
+        return date.year == day.year && date.month == day.month && date.day == day.day;
+      }).length;
+      weeklyTasks.add(FlSpot((6 - i).toDouble(), count.toDouble()));
+    }
 
-    return SafeArea(
-      child: CustomScrollView(
-        slivers: [
-          SliverPadding(
-            padding: const EdgeInsets.all(18),
-            sliver: SliverToBoxAdapter(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: const [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('مساء الخير', style: Theme.of(context).textTheme.titleMedium),
-                      Text('Nizam OS', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800)),
-                    ],
-                  ),
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: const BoxDecoration(shape: BoxShape.circle, color: AppTheme.purple),
-                    child: const Center(child: Text('ن', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 18),
-            sliver: SliverGrid(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 1.45,
-              ),
-              delegate: SliverChildListDelegate([
-                StatCard(title: 'المهام', value: '$done/${tasks.length}', icon: LucideIcons.checkCircle, color: AppTheme.purple),
-                StatCard(title: 'الرصيد', value: balance.toStringAsFixed(0), icon: LucideIcons.wallet, color: AppTheme.green),
-                StatCard(title: 'العادات', value: '${habits.length}', icon: LucideIcons.flame, color: AppTheme.amber),
-                StatCard(
-                  title: 'الإنتاجية',
-                  value: tasks.isEmpty ? '0%' : '${(done * 100 ~/ tasks.length)}%',
-                  icon: LucideIcons.trendingUp,
-                  color: AppTheme.purple,
-                ),
-              ]),
-            ),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.all(18),
-            sliver: SliverToBoxAdapter(
-              child: Column(
-                children: [
-                  NCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SectionHeader(
-                          title: 'مهام اليوم',
-                          actionLabel: 'Kanban',
-                          onAction: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const KanbanScreen())),
-                        ),
-                        const SizedBox(height: 12),
-                        if (tasks.isEmpty) const Text('لا توجد مهام بعد، أضف أول مهمة.'),
-                        for (final t in tasks.take(5))
-                          ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            title: Text(t.title),
-                            subtitle: Text(t.status),
-                            leading: Icon(t.done ? LucideIcons.checkCircle2 : LucideIcons.circle, color: t.done ? AppTheme.green : null),
-                            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => TaskDetailScreen(task: t))),
-                          ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  NCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SectionHeader(title: 'الوصول السريع'),
-                        const SizedBox(height: 12),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            ActionChip(label: const Text('Kanban'), avatar: const Icon(LucideIcons.columns, size: 16), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const KanbanScreen()))),
-                            ActionChip(label: const Text('المحافظ'), avatar: const Icon(LucideIcons.wallet, size: 16), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WalletsScreen()))),
-                            ActionChip(label: const Text('الميزانيات'), avatar: const Icon(LucideIcons.pieChart, size: 16), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BudgetsScreen()))),
-                            ActionChip(label: const Text('الديون'), avatar: const Icon(LucideIcons.coins, size: 16), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DebtsScreen()))),
-                            ActionChip(label: const Text('الصلاة'), avatar: const Icon(LucideIcons.moon, size: 16), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PrayerScreen()))),
-                            ActionChip(label: const Text('الأهداف'), avatar: const Icon(LucideIcons.target, size: 16), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GoalsTimelineScreen()))),
-                            ActionChip(label: const Text('المفكرة'), avatar: const Icon(LucideIcons.bookOpen, size: 16), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const JournalCalendarScreen()))),
-                            ActionChip(label: const Text('الخزنة'), avatar: const Icon(LucideIcons.lock, size: 16), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VaultScreen()))),
-                            ActionChip(label: const Text('الإحصائيات'), avatar: const Icon(LucideIcons.barChart3, size: 16), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const StatisticsScreen()))),
-                            ActionChip(label: const Text('البحث'), avatar: const Icon(LucideIcons.search, size: 16), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SearchScreen()))),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  NCard(
-                    child: SizedBox(
-                      height: 170,
-                      child: LineChart(
-                        LineChartData(
-                          gridData: const FlGridData(show: false),
-                          titlesData: const FlTitlesData(show: false),
-                          borderData: FlBorderData(show: false),
-                          lineBarsData: [
-                            LineChartBarData(
-                              isCurved: true,
-                              barWidth: 3,
-                              dotData: const FlDotData(show: false),
-                              color: AppTheme.purple,
-                              spots: const [
-                                FlSpot(0, 2),
-                                FlSpot(1, 3),
-                                FlSpot(2, 2),
-                                FlSpot(3, 4),
-                                FlSpot(4, 3),
-                                FlSpot(5, 5),
-                                FlSpot(6, 4),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// 5. Tasks List
-class TasksListScreen extends ConsumerWidget {
-  const TasksListScreen({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final tasks = ref.watch(tasksProvider);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('المهام'),
+        title: const Text('Nizam OS'),
         actions: [
-          IconButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const KanbanScreen())), icon: const Icon(LucideIcons.columns)),
-          IconButton(onPressed: () => _showAddDialog(context, ref), icon: const Icon(LucideIcons.plus)),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(18),
-        children: [
-          for (final status in ['todo', 'doing', 'done'])
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: NCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(status == 'todo' ? 'To Do' : status == 'doing' ? 'Doing' : 'Done', style: Theme.of(context).textTheme.titleLarge),
-                    const Divider(),
-                    for (final t in tasks.where((x) => x.status == status))
-                      ListTile(
-                        title: Text(t.title),
-                        subtitle: Text(t.project.isEmpty ? 'بدون مشروع' : t.project),
-                        leading: Checkbox(value: t.done, onChanged: (_) => ref.read(tasksProvider.notifier).toggle(t)),
-                        trailing: PopupMenuButton<String>(
-                          onSelected: (s) {
-                            if (s == 'delete') {
-                              ref.read(tasksProvider.notifier).delete(t);
-                            } else {
-                              ref.read(tasksProvider.notifier).move(t, s);
-                            }
-                          },
-                          itemBuilder: (_) => const [
-                            PopupMenuItem(value: 'todo', child: Text('To Do')),
-                            PopupMenuItem(value: 'doing', child: Text('Doing')),
-                            PopupMenuItem(value: 'done', child: Text('Done')),
-                            PopupMenuItem(value: 'delete', child: Text('حذف')),
-                          ],
-                        ),
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => TaskDetailScreen(task: t))),
-                      ),
-                    if (tasks.where((x) => x.status == status).isEmpty)
-                      const Padding(padding: EdgeInsets.all(8), child: Text('فارغ')),
-                  ],
-                ),
-              ),
-            ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(onPressed: () => _showAddDialog(context, ref), child: const Icon(LucideIcons.plus)),
-    );
-  }
-
-  void _showAddDialog(BuildContext context, WidgetRef ref) {
-    final titleCtrl = TextEditingController();
-    final projCtrl = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('مهمة جديدة'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: titleCtrl, autofocus: true, decoration: const InputDecoration(hintText: 'عنوان المهمة')),
-            const SizedBox(height: 8),
-            TextField(controller: projCtrl, decoration: const InputDecoration(hintText: 'المشروع (اختياري)')),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
-          FilledButton(
-            onPressed: () async {
-              if (titleCtrl.text.trim().isNotEmpty) {
-                await ref.read(tasksProvider.notifier).add(titleCtrl.text.trim(), project: projCtrl.text.trim());
-              }
-              if (context.mounted) Navigator.pop(context);
+          IconButton(
+            tooltip: 'الإحصائيات',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const StatisticsScreen()),
+              );
             },
-            child: const Text('حفظ'),
+            icon: const Icon(Icons.insights_outlined),
           ),
         ],
       ),
-    );
-  }
-}
-
-// 6. Kanban
-class KanbanScreen extends ConsumerWidget {
-  const KanbanScreen({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final tasks = ref.watch(tasksProvider);
-    return Scaffold(
-      appBar: AppBar(title: const Text('Kanban')),
-      body: ListView(
-        padding: const EdgeInsets.all(12),
-        children: [
-          for (final status in ['todo', 'doing', 'done'])
+      body: RefreshIndicator(
+        onRefresh: () async => ref.invalidate(financeProvider),
+        child: ListView(
+          padding: const EdgeInsets.all(18),
+          children: [
+            Text(
+              'مرحباً بك 👋',
+              style: Theme.of(context)
+                  .textTheme
+                  .headlineSmall
+                  ?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 6),
+            const Text('لوحة التحكم الشخصية'),
+            const SizedBox(height: 18),
+            GridView.count(
+              crossAxisCount: 2,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 1.35,
+              children: [
+                _SummaryCard(
+                  title: 'المهام',
+                  value: '${tasks.length}',
+                  icon: Icons.task_alt,
+                  color: AppTheme.purple,
+                ),
+                _SummaryCard(
+                  title: 'الرصيد',
+                  value: balance.toStringAsFixed(2),
+                  icon: Icons.account_balance_wallet_outlined,
+                  color: AppTheme.green,
+                ),
+                _SummaryCard(
+                  title: 'العادات',
+                  value: '$habits',
+                  icon: Icons.local_fire_department_outlined,
+                  color: AppTheme.amber,
+                ),
+                _SummaryCard(
+                  title: 'الإنتاجية',
+                  value: tasks.isEmpty ? '0%' : '${((done / tasks.length) * 100).round()}%',
+                  icon: Icons.bolt_outlined,
+                  color: AppTheme.purple,
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
             NCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(status.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold)),
-                  const Divider(),
-                  for (final t in tasks.where((x) => x.status == status))
-                    Card(
-                      margin: const EdgeInsets.symmetric(vertical: 6),
-                      child: ListTile(
-                        title: Text(t.title),
-                        subtitle: Text(t.project),
-                        trailing: PopupMenuButton<String>(
-                          onSelected: (s) {
-                            if (s == 'delete') {
-                              ref.read(tasksProvider.notifier).delete(t);
-                            } else {
-                              ref.read(tasksProvider.notifier).move(t, s);
-                            }
-                          },
-                          itemBuilder: (_) => const [
-                            PopupMenuItem(value: 'todo', child: Text('To Do')),
-                            PopupMenuItem(value: 'doing', child: Text('Doing')),
-                            PopupMenuItem(value: 'done', child: Text('Done')),
-                            PopupMenuItem(value: 'delete', child: Text('حذف')),
-                          ],
-                        ),
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => TaskDetailScreen(task: t))),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'مهام اليوم',
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                      Text('$done / ${tasks.length}'),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  if (tasks.isEmpty)
+                    const Text('لا توجد مهام بعد. أضف مهمتك الأولى من Task OS.')
+                  else
+                    ...tasks.take(6).map(
+                      (task) => CheckboxListTile(
+                        contentPadding: EdgeInsets.zero,
+                        value: task.done,
+                        title: Text(task.title),
+                        subtitle: task.project.isEmpty ? null : Text(task.project),
+                        onChanged: (_) => ref.read(tasksProvider.notifier).toggle(task),
                       ),
                     ),
                 ],
+              ),
+            ),
+            const SizedBox(height: 18),
+            NCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'النشاط الأسبوعي',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 18),
+                  SizedBox(
+                    height: 180,
+                    child: LineChart(
+                      LineChartData(
+                        gridData: const FlGridData(show: false),
+                        titlesData: const FlTitlesData(show: false),
+                        borderData: FlBorderData(show: false),
+                        lineBarsData: [
+                          LineChartBarData(
+                            isCurved: true,
+                            spots: weeklyTasks,
+                            barWidth: 4,
+                            dotData: const FlDotData(show: false),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SummaryCard extends StatelessWidget {
+  const _SummaryCard({
+    required this.title,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+
+  final String title;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return NCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Icon(icon, color: color),
+          Text(
+            value,
+            style: Theme.of(context)
+                .textTheme
+                .titleLarge
+                ?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          Text(title),
+        ],
+      ),
+    );
+  }
+}
+
+class TasksScreen extends ConsumerStatefulWidget {
+  const TasksScreen({super.key});
+
+  @override
+  ConsumerState<TasksScreen> createState() => _TasksScreenState();
+}
+
+class _TasksScreenState extends ConsumerState<TasksScreen> {
+  String _filter = 'all';
+
+  Future<void> _addTask() async {
+    final controller = TextEditingController();
+    final project = TextEditingController();
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('مهمة جديدة'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: controller,
+                autofocus: true,
+                decoration: const InputDecoration(labelText: 'اسم المهمة'),
+              ),
+              TextField(
+                controller: project,
+                decoration: const InputDecoration(labelText: 'المشروع'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('إلغاء'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('حفظ'),
+            ),
+          ],
+        );
+      },
+    );
+    if (saved == true && controller.text.trim().isNotEmpty) {
+      await ref.read(tasksProvider.notifier).add(
+            controller.text.trim(),
+            project: project.text.trim(),
+          );
+    }
+    controller.dispose();
+    project.dispose();
+  }
+
+  Future<void> _pomodoro() async {
+    var seconds = 25 * 60;
+    Timer? timer;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            timer ??= Timer.periodic(const Duration(seconds: 1), (_) {
+              if (seconds > 0) {
+                setState(() => seconds--);
+              } else {
+                timer?.cancel();
+              }
+            });
+            final minutes = seconds ~/ 60;
+            final remainder = seconds % 60;
+            return AlertDialog(
+              title: const Text('Pomodoro'),
+              content: Text(
+                '$minutes:${remainder.toString().padLeft(2, '0')}',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.displayMedium,
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    timer?.cancel();
+                    Navigator.pop(dialogContext);
+                  },
+                  child: const Text('إغلاق'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    timer?.cancel();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tasks = ref.watch(tasksProvider);
+    final filtered = _filter == 'all'
+        ? tasks
+        : tasks.where((task) => task.status == _filter).toList();
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Task OS'),
+        actions: [
+          IconButton(onPressed: _pomodoro, icon: const Icon(Icons.timer_outlined)),
+          IconButton(onPressed: _addTask, icon: const Icon(Icons.add)),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(18),
+        children: [
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (final item in const [
+                  ('all', 'الكل'),
+                  ('todo', 'To Do'),
+                  ('doing', 'Doing'),
+                  ('done', 'Done'),
+                ])
+                  Padding(
+                    padding: const EdgeInsetsDirectional.only(end: 8),
+                    child: ChoiceChip(
+                      label: Text(item.$2),
+                      selected: _filter == item.$1,
+                      onSelected: (_) => setState(() => _filter = item.$1),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (filtered.isEmpty)
+            const NCard(child: Text('لا توجد مهام في هذه الحالة.'))
+          else
+            ...filtered.map(
+              (task) => NCard(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Checkbox(
+                    value: task.done,
+                    onChanged: (_) => ref.read(tasksProvider.notifier).toggle(task),
+                  ),
+                  title: Text(
+                    task.title,
+                    style: TextStyle(
+                      decoration: task.done ? TextDecoration.lineThrough : null,
+                    ),
+                  ),
+                  subtitle: Text(task.project.isEmpty ? task.status : task.project),
+                  trailing: PopupMenuButton<String>(
+                    onSelected: (value) {
+                      ref.read(tasksProvider.notifier).move(task, value);
+                    },
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(value: 'todo', child: Text('To Do')),
+                      PopupMenuItem(value: 'doing', child: Text('Doing')),
+                      PopupMenuItem(value: 'done', child: Text('Done')),
+                    ],
+                  ),
+                ),
               ),
             ),
         ],
@@ -473,114 +606,102 @@ class KanbanScreen extends ConsumerWidget {
   }
 }
 
-// 7. Task Detail + Pomodoro
-class TaskDetailScreen extends ConsumerStatefulWidget {
-  final Task task;
-  const TaskDetailScreen({super.key, required this.task});
+class FinanceScreen extends StatefulWidget {
+  const FinanceScreen({super.key});
 
   @override
-  ConsumerState<TaskDetailScreen> createState() => _TaskDetailState();
+  State<FinanceScreen> createState() => _FinanceScreenState();
 }
 
-class _TaskDetailState extends ConsumerState<TaskDetailScreen> {
-  Timer? _timer;
-  int _seconds = 25 * 60;
-  bool _running = false;
+class _FinanceScreenState extends State<FinanceScreen> {
+  Future<void> _addTransaction() async {
+    final title = TextEditingController();
+    final amount = TextEditingController();
+    var type = 'expense';
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('معاملة مالية'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: title,
+                    decoration: const InputDecoration(labelText: 'الوصف'),
+                  ),
+                  TextField(
+                    controller: amount,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(labelText: 'المبلغ'),
+                  ),
+                  const SizedBox(height: 12),
+                  SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(value: 'expense', label: Text('مصروف')),
+                      ButtonSegment(value: 'income', label: Text('دخل')),
+                    ],
+                    selected: {type},
+                    onSelectionChanged: (value) {
+                      setDialogState(() => type = value.first);
+                    },
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: const Text('إلغاء'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(dialogContext, true),
+                  child: const Text('حفظ'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
 
-  void _toggleTimer() {
-    if (_running) {
-      _timer?.cancel();
-      setState(() => _running = false);
-    } else {
-      setState(() => _running = true);
-      _timer = Timer.periodic(const Duration(seconds: 1), (t) {
-        if (_seconds > 0) {
-          setState(() => _seconds--);
-        } else {
-          t.cancel();
-          setState(() {
-            _running = false;
-            _seconds = 25 * 60;
-          });
-          ref.read(tasksProvider.notifier).incPomodoro(widget.task);
-        }
+    final value = double.tryParse(amount.text.trim());
+    if (saved == true && title.text.trim().isNotEmpty && value != null && value > 0) {
+      await Storage.box('transactions').put(const Uuid().v4(), {
+        'title': title.text.trim(),
+        'amount': value,
+        'type': type,
+        'date': DateTime.now().toIso8601String(),
       });
+      if (mounted) setState(() {});
     }
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
+    title.dispose();
+    amount.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final taskList = ref.watch(tasksProvider);
-    final task = taskList.firstWhere((e) => e.id == widget.task.id, orElse: () => widget.task);
-    return Scaffold(
-      appBar: AppBar(title: Text(task.title)),
-      body: ListView(
-        padding: const EdgeInsets.all(18),
-        children: [
-          NCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('الحالة: ${task.status}', style: Theme.of(context).textTheme.titleMedium),
-                Text('Pomodoro: ${task.pomodoroCount}'),
-                const SizedBox(height: 12),
-                NButton(
-                  label: task.done ? 'إعادة فتح' : 'إكمال',
-                  icon: task.done ? LucideIcons.rotateCcw : LucideIcons.check,
-                  onTap: () => ref.read(tasksProvider.notifier).toggle(task),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          NCard(
-            child: Column(
-              children: [
-                Text('${(_seconds ~/ 60).toString().padLeft(2, '0')}:${(_seconds % 60).toString().padLeft(2, '0')}', style: Theme.of(context).textTheme.displayMedium?.copyWith(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 12),
-                NButton(label: _running ? 'إيقاف' : 'بدء Pomodoro', icon: _running ? LucideIcons.pause : LucideIcons.play, onTap: _toggleTimer),
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  onPressed: () {
-                    setState(() => _seconds = 25 * 60);
-                    _timer?.cancel();
-                    setState(() => _running = false);
-                  },
-                  icon: const Icon(LucideIcons.refreshCw),
-                  label: const Text('إعادة تعيين'),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+    final values = Storage.box('transactions').values.whereType<Map>().map(
+      (value) => Map<String, dynamic>.from(value),
+    ).toList();
 
-// 8. Finance Dashboard
-class FinanceDashboardScreen extends ConsumerWidget {
-  const FinanceDashboardScreen({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final txs = ref.watch(transactionsProvider);
-    final balance = ref.watch(financeProvider);
-    final income = txs.where((t) => t.type == 'income').fold<double>(0, (s, t) => s + t.amount);
-    final expense = txs.where((t) => t.type == 'expense').fold<double>(0, (s, t) => s + t.amount);
+    double income = 0;
+    double expense = 0;
+    for (final value in values) {
+      final amount = (value['amount'] as num?)?.toDouble() ?? 0;
+      if (value['type'] == 'income') {
+        income += amount;
+      } else {
+        expense += amount;
+      }
+    }
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('المالية'),
+        title: const Text('Finance OS'),
         actions: [
-          IconButton(icon: const Icon(LucideIcons.wallet), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WalletsScreen()))),
-          IconButton(icon: const Icon(LucideIcons.plus), onPressed: () => _showAddTx(context, ref)),
+          IconButton(onPressed: _addTransaction, icon: const Icon(Icons.add)),
         ],
       ),
       body: ListView(
@@ -589,309 +710,33 @@ class FinanceDashboardScreen extends ConsumerWidget {
           NCard(
             child: Column(
               children: [
-                Text('الرصيد الحقيقي', style: Theme.of(context).textTheme.titleMedium),
-                Text(balance.toStringAsFixed(2), style: Theme.of(context).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.bold, color: balance >= 0 ? AppTheme.green : Colors.red)),
-                const SizedBox(height: 12),
+                const Text('الرصيد الحقيقي'),
+                const SizedBox(height: 6),
+                Text(
+                  (income - expense).toStringAsFixed(2),
+                  style: Theme.of(context)
+                      .textTheme
+                      .displaySmall
+                      ?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 18),
                 SizedBox(
                   height: 180,
                   child: PieChart(
                     PieChartData(
                       sections: [
-                        PieChartSectionData(value: income == 0 ? 1 : income, title: 'دخل', color: AppTheme.green, radius: 60),
-                        PieChartSectionData(value: expense == 0 ? 1 : expense, title: 'مصروف', color: AppTheme.amber, radius: 60),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(child: StatCard(title: 'الدخل', value: income.toStringAsFixed(0), icon: LucideIcons.trendingUp, color: AppTheme.green)),
-                    const SizedBox(width: 12),
-                    Expanded(child: StatCard(title: 'المصروف', value: expense.toStringAsFixed(0), icon: LucideIcons.trendingDown, color: AppTheme.amber)),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          NCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SectionHeader(title: 'المعاملات', actionLabel: 'إضافة', onAction: () => _showAddTx(context, ref)),
-                const SizedBox(height: 8),
-                for (final m in txs.take(20))
-                  ListTile(
-                    title: Text(m.title),
-                    subtitle: Text(m.type == 'income' ? 'دخل' : 'مصروف'),
-                    trailing: Text('${m.amount}', style: TextStyle(color: m.type == 'income' ? AppTheme.green : Colors.red, fontWeight: FontWeight.bold)),
-                    onTap: () => ref.read(transactionsProvider.notifier).delete(m.id),
-                  ),
-                if (txs.isEmpty) const Text('لا توجد معاملات بعد.'),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showAddTx(BuildContext context, WidgetRef ref) {
-    final titleCtrl = TextEditingController();
-    final amountCtrl = TextEditingController();
-    String type = 'expense';
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSt) => AlertDialog(
-          title: const Text('معاملة جديدة'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(controller: titleCtrl, decoration: const InputDecoration(labelText: 'الوصف')),
-              TextField(controller: amountCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'المبلغ')),
-              const SizedBox(height: 8),
-              DropdownButton<String>(
-                value: type,
-                isExpanded: true,
-                items: const [
-                  DropdownMenuItem(value: 'expense', child: Text('مصروف')),
-                  DropdownMenuItem(value: 'income', child: Text('دخل')),
-                ],
-                onChanged: (v) => setSt(() => type = v!),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
-            FilledButton(
-              onPressed: () async {
-                final a = double.tryParse(amountCtrl.text);
-                if (titleCtrl.text.isNotEmpty && a != null) {
-                  await ref.read(transactionsProvider.notifier).add(titleCtrl.text, a, type);
-                  if (ctx.mounted) Navigator.pop(ctx);
-                }
-              },
-              child: const Text('حفظ'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// 9. Wallets
-class WalletsScreen extends ConsumerWidget {
-  const WalletsScreen({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final wallets = ref.watch(walletsProvider);
-    return Scaffold(
-      appBar: AppBar(title: const Text('المحافظ')),
-      body: ListView(
-        padding: const EdgeInsets.all(18),
-        children: [
-          for (final w in wallets)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: NCard(child: ListTile(title: Text(w.name), subtitle: Text('ID: ${w.id}'), leading: const Icon(LucideIcons.wallet))),
-            ),
-          const SizedBox(height: 12),
-          NButton(
-            label: 'إضافة محفظة',
-            onTap: () {
-              final ctl = TextEditingController();
-              showDialog(
-                context: context,
-                builder: (_) => AlertDialog(
-                  title: const Text('محفظة جديدة'),
-                  content: TextField(controller: ctl),
-                  actions: [
-                    FilledButton(
-                      onPressed: () async {
-                        if (ctl.text.trim().isNotEmpty) {
-                          await ref.read(walletsProvider.notifier).add(ctl.text.trim());
-                        }
-                        if (context.mounted) Navigator.pop(context);
-                      },
-                      child: const Text('حفظ'),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// 10. Budgets
-class BudgetsScreen extends ConsumerWidget {
-  const BudgetsScreen({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final box = Storage.box('budgets');
-    final items = box.values.map((e) => Budget.fromMap(Map<String, dynamic>.from(e as Map))).toList();
-    return Scaffold(
-      appBar: AppBar(title: const Text('الميزانيات')),
-      body: ListView(
-        padding: const EdgeInsets.all(18),
-        children: [
-          for (final b in items)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: NCard(child: ListTile(title: Text(b.name), subtitle: Text('${b.spent}/${b.limit}'), trailing: Text('${((b.spent / (b.limit == 0 ? 1 : b.limit)) * 100).round()}%'))),
-            ),
-          if (items.isEmpty) const NCard(child: Text('لا توجد ميزانيات')),
-          const SizedBox(height: 12),
-          NButton(
-            label: 'إضافة ميزانية',
-            onTap: () {
-              final name = TextEditingController();
-              final limit = TextEditingController();
-              showDialog(
-                context: context,
-                builder: (_) => AlertDialog(
-                  title: const Text('ميزانية'),
-                  content: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      TextField(controller: name, decoration: const InputDecoration(labelText: 'الاسم')),
-                      TextField(controller: limit, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'الحد')),
-                    ],
-                  ),
-                  actions: [
-                    FilledButton(
-                      onPressed: () async {
-                        final l = double.tryParse(limit.text);
-                        if (name.text.isNotEmpty && l != null) {
-                          final id = const Uuid().v4();
-                          await box.put(id, Budget(id: id, name: name.text, limit: l).toMap());
-                        }
-                        if (context.mounted) Navigator.pop(context);
-                      },
-                      child: const Text('حفظ'),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// 11. Debts
-class DebtsScreen extends StatelessWidget {
-  const DebtsScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final box = Storage.box('debts');
-    final items = box.values.map((e) => Debt.fromMap(Map<String, dynamic>.from(e as Map))).toList();
-    return Scaffold(
-      appBar: AppBar(title: const Text('الديون')),
-      body: ListView(
-        padding: const EdgeInsets.all(18),
-        children: [
-          for (final d in items)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: NCard(child: ListTile(title: Text(d.name), subtitle: Text(d.type), trailing: Text('${d.amount}'))),
-            ),
-          if (items.isEmpty) const NCard(child: Text('لا توجد ديون')),
-          const SizedBox(height: 12),
-          NButton(
-            label: 'إضافة دين',
-            onTap: () {
-              final title = TextEditingController();
-              final amount = TextEditingController();
-              final person = TextEditingController();
-              String type = 'owed';
-              showDialog(
-                context: context,
-                builder: (ctx) => StatefulBuilder(
-                  builder: (ctx, setSt) => AlertDialog(
-                    title: const Text('دين'),
-                    content: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        TextField(controller: title, decoration: const InputDecoration(labelText: 'الوصف')),
-                        TextField(controller: amount, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'المبلغ')),
-                        TextField(controller: person, decoration: const InputDecoration(labelText: 'الشخص')),
-                        DropdownButton<String>(
-                          value: type,
-                          items: const [
-                            DropdownMenuItem(value: 'owed', child: Text('لي')),
-                            DropdownMenuItem(value: 'owedTo', child: Text('علي')),
-                          ],
-                          onChanged: (v) => setSt(() => type = v!),
+                        PieChartSectionData(
+                          value: income == 0 ? 0.01 : income,
+                          title: 'دخل',
+                        ),
+                        PieChartSectionData(
+                          value: expense == 0 ? 0.01 : expense,
+                          title: 'مصروف',
                         ),
                       ],
                     ),
-                    actions: [
-                      FilledButton(
-                        onPressed: () async {
-                          final a = double.tryParse(amount.text);
-                          if (title.text.isNotEmpty && a != null) {
-                            final id = const Uuid().v4();
-                            await box.put(id, Debt(id: id, name: title.text.isNotEmpty ? title.text : person.text, amount: a, type: type, date: DateTime.now()).toMap());
-                          }
-                          if (ctx.mounted) Navigator.pop(ctx);
-                        },
-                        child: const Text('حفظ'),
-                      ),
-                    ],
                   ),
                 ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// 12. Habits
-class HabitsScreen extends ConsumerWidget {
-  const HabitsScreen({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final habits = ref.watch(habitsProvider);
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('العادات'),
-        actions: [
-          IconButton(icon: const Icon(LucideIcons.moon), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PrayerScreen()))),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(18),
-        children: [
-          NCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SectionHeader(title: 'عاداتك', actionLabel: 'إضافة', onAction: () => _addHabit(context, ref)),
-                const SizedBox(height: 12),
-                if (habits.isEmpty) const Text('أضف أول عادة لتبدأ.'),
-                for (final h in habits)
-                  ListTile(
-                    title: Text(h.name),
-                    subtitle: Text('Streak ${h.streak}'),
-                    leading: const Icon(LucideIcons.flame),
-                    trailing: IconButton(icon: const Icon(LucideIcons.check), onPressed: () => ref.read(habitsProvider.notifier).complete(h.id)),
-                  ),
               ],
             ),
           ),
@@ -899,58 +744,50 @@ class HabitsScreen extends ConsumerWidget {
           NCard(
             child: Column(
               children: [
-                const Text('ماء ونوم'),
-                ListTile(
-                  title: const Text('الماء اليوم'),
-                  subtitle: Text('${Storage.box('water').get('today', defaultValue: 0)} كوب'),
-                  trailing: IconButton(
-                    icon: const Icon(LucideIcons.plus),
-                    onPressed: () async {
-                      final b = Storage.box('water');
-                      final c = (b.get('today', defaultValue: 0) as int) + 1;
-                      await b.put('today', c);
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم: $c أكواب')));
-                      }
-                    },
+                const ListTile(title: Text('المعاملات')),
+                if (values.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text('لا توجد معاملات مالية بعد.'),
+                  )
+                else
+                  ...values.reversed.take(30).map(
+                    (value) => ListTile(
+                      title: Text('${value['title'] ?? ''}'),
+                      subtitle: Text(
+                        value['type'] == 'income' ? 'دخل' : 'مصروف',
+                      ),
+                      trailing: Text('${value['amount'] ?? 0}'),
+                    ),
                   ),
-                ),
-                ListTile(
-                  title: const Text('النوم'),
-                  subtitle: Text('${Storage.box('sleep').get('last', defaultValue: 0)} ساعة'),
-                  trailing: IconButton(
-                    icon: const Icon(LucideIcons.plus),
-                    onPressed: () async {
-                      final b = Storage.box('sleep');
-                      await b.put('last', 8);
-                    },
-                  ),
-                ),
               ],
             ),
           ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(onPressed: () => _addHabit(context, ref), child: const Icon(LucideIcons.plus)),
-    );
-  }
-
-  void _addHabit(BuildContext context, WidgetRef ref) {
-    final ctl = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('عادة جديدة'),
-        content: TextField(controller: ctl, decoration: const InputDecoration(hintText: 'اسم العادة')),
-        actions: [
-          FilledButton(
-            onPressed: () async {
-              if (ctl.text.trim().isNotEmpty) {
-                await ref.read(habitsProvider.notifier).add(ctl.text.trim());
-              }
-              if (context.mounted) Navigator.pop(context);
-            },
-            child: const Text('حفظ'),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: NButton(
+                  label: 'المحافظ',
+                  icon: Icons.account_balance_wallet_outlined,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const WalletsScreen()),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: NButton(
+                  label: 'الديون',
+                  icon: Icons.receipt_long_outlined,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const DebtsScreen()),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -958,37 +795,155 @@ class HabitsScreen extends ConsumerWidget {
   }
 }
 
-// 13. Prayer
-class PrayerScreen extends StatelessWidget {
-  const PrayerScreen({super.key});
+class WalletsScreen extends StatefulWidget {
+  const WalletsScreen({super.key});
+
+  @override
+  State<WalletsScreen> createState() => _WalletsScreenState();
+}
+
+class _WalletsScreenState extends State<WalletsScreen> {
+  Future<void> _add() async {
+    final name = TextEditingController();
+    final opening = TextEditingController();
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('محفظة جديدة'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: name, decoration: const InputDecoration(labelText: 'الاسم')),
+            TextField(
+              controller: opening,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(labelText: 'الرصيد الافتتاحي'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('إلغاء')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('حفظ')),
+        ],
+      ),
+    );
+    final balance = double.tryParse(opening.text) ?? 0;
+    if (saved == true && name.text.trim().isNotEmpty) {
+      await Storage.box('wallets').put(const Uuid().v4(), {
+        'name': name.text.trim(),
+        'balance': balance,
+        'createdAt': DateTime.now().toIso8601String(),
+      });
+      if (mounted) setState(() {});
+    }
+    name.dispose();
+    opening.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final box = Storage.box('prayers');
+    final wallets = Storage.box('wallets').values.whereType<Map>().map(
+      (value) => Map<String, dynamic>.from(value),
+    ).toList();
     return Scaffold(
-      appBar: AppBar(title: const Text('الصلاة')),
+      appBar: AppBar(
+        title: const Text('Wallets'),
+        actions: [IconButton(onPressed: _add, icon: const Icon(Icons.add))],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(18),
         children: [
-          NCard(
-            child: Column(
-              children: [
-                Text('الصلوات الخمس', style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 12),
-                for (final p in ['الفجر', 'الظهر', 'العصر', 'المغرب', 'العشاء'])
-                  CheckboxListTile(
-                    value: box.get(p, defaultValue: false) as bool,
-                    onChanged: (v) async {
-                      await box.put(p, v ?? false);
-                    },
-                    title: Text(p),
-                  ),
-              ],
+          if (wallets.isEmpty)
+            const NCard(child: Text('لا توجد محافظ بعد.'))
+          else
+            ...wallets.map(
+              (wallet) => NCard(
+                child: ListTile(
+                  leading: const Icon(Icons.account_balance_wallet),
+                  title: Text('${wallet['name'] ?? ''}'),
+                  trailing: Text('${wallet['balance'] ?? 0}'),
+                ),
+              ),
             ),
-          ),
+        ],
+      ),
+    );
+  }
+}
+
+class DebtsScreen extends StatefulWidget {
+  const DebtsScreen({super.key});
+
+  @override
+  State<DebtsScreen> createState() => _DebtsScreenState();
+}
+
+class _DebtsScreenState extends State<DebtsScreen> {
+  Future<void> _add() async {
+    final person = TextEditingController();
+    final amount = TextEditingController();
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('دين جديد'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: person, decoration: const InputDecoration(labelText: 'الاسم')),
+            TextField(
+              controller: amount,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(labelText: 'المبلغ'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('إلغاء')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('حفظ')),
+        ],
+      ),
+    );
+    final value = double.tryParse(amount.text) ?? 0;
+    if (saved == true && person.text.trim().isNotEmpty && value > 0) {
+      await Storage.box('debts').put(const Uuid().v4(), {
+        'person': person.text.trim(),
+        'amount': value,
+        'paid': 0.0,
+        'createdAt': DateTime.now().toIso8601String(),
+      });
+      if (mounted) setState(() {});
+    }
+    person.dispose();
+    amount.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final debts = Storage.box('debts').values.whereType<Map>().map(
+      (value) => Map<String, dynamic>.from(value),
+    ).toList();
+    final total = debts.fold<double>(
+      0,
+      (sum, debt) => sum + ((debt['amount'] as num?)?.toDouble() ?? 0) - ((debt['paid'] as num?)?.toDouble() ?? 0),
+    );
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Debts'),
+        actions: [IconButton(onPressed: _add, icon: const Icon(Icons.add))],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(18),
+        children: [
+          NCard(child: Text('إجمالي المستحق: ${total.toStringAsFixed(2)}')),
           const SizedBox(height: 12),
-          NCard(
-            child: TableCalendar(firstDay: DateTime.utc(2020), lastDay: DateTime.utc(2035), focusedDay: DateTime.now()),
+          ...debts.map(
+            (debt) => NCard(
+              child: ListTile(
+                leading: const Icon(Icons.person_outline),
+                title: Text('${debt['person'] ?? ''}'),
+                trailing: Text('${debt['amount'] ?? 0}'),
+              ),
+            ),
           ),
         ],
       ),
@@ -996,15 +951,139 @@ class PrayerScreen extends StatelessWidget {
   }
 }
 
-// 14. Vault
-class VaultScreen extends StatefulWidget {
-  const VaultScreen({super.key});
+class HabitsScreen extends StatefulWidget {
+  const HabitsScreen({super.key});
+
   @override
-  State<VaultScreen> createState() => _VaultState();
+  State<HabitsScreen> createState() => _HabitsScreenState();
 }
 
-class _VaultState extends State<VaultScreen> {
+class _HabitsScreenState extends State<HabitsScreen> {
+  Future<void> _addHabit() async {
+    final controller = TextEditingController();
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('عادة جديدة'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'اسم العادة'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('إلغاء')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('حفظ')),
+        ],
+      ),
+    );
+    if (saved == true && controller.text.trim().isNotEmpty) {
+      await Storage.box('habits').put(const Uuid().v4(), {
+        'name': controller.text.trim(),
+        'streak': 0,
+        'createdAt': DateTime.now().toIso8601String(),
+      });
+      if (mounted) setState(() {});
+    }
+    controller.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final habits = Storage.box('habits').values.whereType<Map>().map(
+      (value) => Map<String, dynamic>.from(value),
+    ).toList();
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Habit OS'),
+        actions: [IconButton(onPressed: _addHabit, icon: const Icon(Icons.add))],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(18),
+        children: [
+          NCard(
+            child: Column(
+              children: [
+                const ListTile(title: Text('عاداتك')),
+                if (habits.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text('أضف أول عادة.'),
+                  )
+                else
+                  ...habits.map(
+                    (habit) => ListTile(
+                      leading: const Icon(Icons.local_fire_department, color: AppTheme.amber),
+                      title: Text('${habit['name'] ?? ''}'),
+                      trailing: Text('🔥 ${habit['streak'] ?? 0}'),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          NCard(
+            child: Column(
+              children: [
+                const ListTile(title: Text('متتبع الصلوات')),
+                for (final prayer in const ['الفجر', 'الظهر', 'العصر', 'المغرب', 'العشاء'])
+                  PrayerTile(name: prayer),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          NCard(
+            child: Column(
+              children: [
+                const ListTile(title: Text('الماء والنوم')),
+                ListTile(
+                  title: const Text('الماء'),
+                  trailing: Text('${Storage.box('water').get('today', defaultValue: 0)} كوب'),
+                ),
+                ListTile(
+                  title: const Text('النوم'),
+                  trailing: Text('${Storage.box('sleep').get('last', defaultValue: 0)} ساعة'),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class PrayerTile extends StatefulWidget {
+  const PrayerTile({required this.name, super.key});
+
+  final String name;
+
+  @override
+  State<PrayerTile> createState() => _PrayerTileState();
+}
+
+class _PrayerTileState extends State<PrayerTile> {
+  bool checked = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return CheckboxListTile(
+      value: checked,
+      title: Text(widget.name),
+      onChanged: (value) => setState(() => checked = value ?? false),
+    );
+  }
+}
+
+class VaultScreen extends StatefulWidget {
+  const VaultScreen({super.key});
+
+  @override
+  State<VaultScreen> createState() => _VaultScreenState();
+}
+
+class _VaultScreenState extends State<VaultScreen> {
   bool _unlocked = false;
+  final LocalAuthentication _auth = LocalAuthentication();
 
   @override
   void initState() {
@@ -1013,82 +1092,159 @@ class _VaultState extends State<VaultScreen> {
   }
 
   Future<void> _unlock() async {
-    final ok = await VaultService.unlock();
-    if (mounted) setState(() => _unlocked = ok);
+    try {
+      final supported = await _auth.isDeviceSupported();
+      if (!supported) return;
+      final result = await VaultService.unlock();
+      if (mounted) setState(() => _unlocked = result);
+    } catch (_) {
+      if (mounted) setState(() => _unlocked = false);
+    }
+  }
+
+  Future<void> _addSecret() async {
+    final title = TextEditingController();
+    final secret = TextEditingController();
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('عنصر آمن'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: title, decoration: const InputDecoration(labelText: 'العنوان')),
+            TextField(controller: secret, obscureText: true, decoration: const InputDecoration(labelText: 'المحتوى السري')),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('إلغاء')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('حفظ')),
+        ],
+      ),
+    );
+    if (saved == true && title.text.trim().isNotEmpty && secret.text.isNotEmpty) {
+      await VaultService.put(title.text.trim(), secret.text);
+      if (mounted) setState(() {});
+    }
+    title.dispose();
+    secret.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final box = Storage.box('vault');
-    final items = box.values.map((e) => VaultItem.fromMap(Map<String, dynamic>.from(e as Map))).toList();
+    final values = Storage.box('vault').values.whereType<Map>().map(
+      (value) => Map<String, dynamic>.from(value),
+    ).toList();
     return Scaffold(
-      appBar: AppBar(title: const Text('الخزنة')),
+      appBar: AppBar(title: const Text('Vault OS')),
       body: _unlocked
           ? ListView(
               padding: const EdgeInsets.all(18),
               children: [
-                for (final m in items)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: NCard(
+                FilledButton.icon(
+                  onPressed: _addSecret,
+                  icon: const Icon(Icons.add),
+                  label: const Text('إضافة عنصر آمن'),
+                ),
+                const SizedBox(height: 12),
+                if (values.isEmpty)
+                  const NCard(child: Text('الخزنة فارغة.'))
+                else
+                  ...values.map(
+                    (value) => NCard(
                       child: ListTile(
-                        title: Text(m.title),
-                        subtitle: Text(m.secret),
-                        trailing: IconButton(
-                          icon: const Icon(LucideIcons.trash2),
-                          onPressed: () async {
-                            await VaultService.delete(m.id);
-                            setState(() {});
-                          },
-                        ),
+                        leading: const Icon(Icons.lock_outline),
+                        title: Text('${value['title'] ?? ''}'),
+                        subtitle: const Text('محتوى مشفر محلياً'),
                       ),
                     ),
                   ),
-                const SizedBox(height: 12),
-                NButton(label: 'إضافة سر', onTap: () => _addSecret(context)),
               ],
             )
           : Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(LucideIcons.lock, size: 64),
+                  const Icon(Icons.lock, size: 72),
                   const SizedBox(height: 12),
                   const Text('الخزنة مقفلة'),
                   const SizedBox(height: 12),
-                  NButton(label: 'فتح بالبصمة', onTap: _unlock),
+                  FilledButton(
+                    onPressed: _unlock,
+                    child: const Text('فتح بالبصمة / قفل الجهاز'),
+                  ),
                 ],
               ),
             ),
     );
   }
+}
 
-  void _addSecret(BuildContext context) {
-    final title = TextEditingController();
-    final secret = TextEditingController();
-    showDialog(
+class GoalsScreen extends StatefulWidget {
+  const GoalsScreen({super.key});
+
+  @override
+  State<GoalsScreen> createState() => _GoalsScreenState();
+}
+
+class _GoalsScreenState extends State<GoalsScreen> {
+  Future<void> _addGoal() async {
+    final controller = TextEditingController();
+    final saved = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('سر جديد'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: title, decoration: const InputDecoration(labelText: 'العنوان')),
-            TextField(controller: secret, obscureText: true, decoration: const InputDecoration(labelText: 'المحتوى')),
-          ],
-        ),
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('هدف جديد'),
+        content: TextField(controller: controller, decoration: const InputDecoration(labelText: 'اسم الهدف')),
         actions: [
-          FilledButton(
-            onPressed: () async {
-              if (title.text.isNotEmpty) {
-                await VaultService.put(title.text, secret.text);
-              }
-              if (context.mounted) {
-                Navigator.pop(context);
-                setState(() {});
-              }
-            },
-            child: const Text('حفظ'),
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('إلغاء')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('حفظ')),
+        ],
+      ),
+    );
+    if (saved == true && controller.text.trim().isNotEmpty) {
+      await Storage.box('goals').put(const Uuid().v4(), {
+        'title': controller.text.trim(),
+        'createdAt': DateTime.now().toIso8601String(),
+      });
+      if (mounted) setState(() {});
+    }
+    controller.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final goals = Storage.box('goals').values.whereType<Map>().map(
+      (value) => Map<String, dynamic>.from(value),
+    ).toList();
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Goals & Journal'),
+        actions: [IconButton(onPressed: _addGoal, icon: const Icon(Icons.add))],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(18),
+        children: [
+          const NCard(child: Text('الأهداف — Timeline')),
+          const SizedBox(height: 12),
+          ...goals.map(
+            (goal) => NCard(
+              child: ListTile(
+                leading: const Icon(Icons.flag_outlined),
+                title: Text('${goal['title'] ?? ''}'),
+                subtitle: Text('${goal['createdAt'] ?? ''}'),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          NCard(
+            child: TableCalendar<void>(
+              focusedDay: DateTime.now(),
+              firstDay: DateTime(2020),
+              lastDay: DateTime(2100),
+              calendarFormat: CalendarFormat.month,
+              selectedDayPredicate: (day) => isSameDay(day, DateTime.now()),
+              onDaySelected: (_, __) {},
+            ),
           ),
         ],
       ),
@@ -1096,299 +1252,233 @@ class _VaultState extends State<VaultScreen> {
   }
 }
 
-// 15. Goals Timeline
-class GoalsTimelineScreen extends StatelessWidget {
-  const GoalsTimelineScreen({super.key});
+class JournalScreen extends StatefulWidget {
+  const JournalScreen({super.key});
+
+  @override
+  State<JournalScreen> createState() => _JournalScreenState();
+}
+
+class _JournalScreenState extends State<JournalScreen> {
+  Future<void> _addEntry() async {
+    final controller = TextEditingController();
+    var mood = 3;
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('مذكرة جديدة'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: controller, maxLines: 5, decoration: const InputDecoration(labelText: 'اكتب مذكرتك')),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<int>(
+                value: mood,
+                items: [
+                  for (var value = 1; value <= 5; value++)
+                    DropdownMenuItem(value: value, child: Text('المزاج $value / 5')),
+                ],
+                onChanged: (value) => setState(() => mood = value ?? 3),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('إلغاء')),
+            FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('حفظ')),
+          ],
+        ),
+      ),
+    );
+    if (saved == true && controller.text.trim().isNotEmpty) {
+      await Storage.box('journal').put(const Uuid().v4(), {
+        'text': controller.text.trim(),
+        'mood': mood,
+        'date': DateTime.now().toIso8601String(),
+      });
+      if (mounted) setState(() {});
+    }
+    controller.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final box = Storage.box('goals');
-    final goals = box.values.map((e) => Goal.fromMap(Map<String, dynamic>.from(e as Map))).toList();
+    final entries = Storage.box('journal').values.whereType<Map>().map(
+      (value) => Map<String, dynamic>.from(value),
+    ).toList();
     return Scaffold(
-      appBar: AppBar(title: const Text('الأهداف')),
+      appBar: AppBar(
+        title: const Text('Journal'),
+        actions: [IconButton(onPressed: _addEntry, icon: const Icon(Icons.add))],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(18),
         children: [
-          for (final g in goals)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: NCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(g.title, style: Theme.of(context).textTheme.titleMedium),
-                    Text('التقدم: ${(g.progress * 100).round()}% - ${g.createdAt.day}/${g.createdAt.month}/${g.createdAt.year}'),
-                    const SizedBox(height: 8),
-                    LinearProgressIndicator(value: g.progress),
-                    Text('${(g.progress * 100).round()}%'),
-                  ],
+          if (entries.isEmpty)
+            const NCard(child: Text('لا توجد مذكرات بعد.'))
+          else
+            ...entries.reversed.map(
+              (entry) => NCard(
+                child: ListTile(
+                  title: Text('${entry['text'] ?? ''}'),
+                  subtitle: Text('المزاج: ${entry['mood'] ?? 3}/5 — ${entry['date'] ?? ''}'),
                 ),
               ),
             ),
-          if (goals.isEmpty) const NCard(child: Text('لا توجد أهداف بعد')),
-          const SizedBox(height: 12),
-          NButton(
-            label: 'إضافة هدف',
-            onTap: () {
-              final title = TextEditingController();
-              final desc = TextEditingController();
-              showDialog(
-                context: context,
-                builder: (_) => AlertDialog(
-                  title: const Text('هدف جديد'),
-                  content: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      TextField(controller: title, decoration: const InputDecoration(labelText: 'العنوان')),
-                    ],
-                  ),
-                  actions: [
-                    FilledButton(
-                      onPressed: () async {
-                        if (title.text.isNotEmpty) {
-                          final id = const Uuid().v4();
-                          await box.put(id, Goal(id: id, title: title.text, progress: 0.2, createdAt: DateTime.now()).toMap());
-                        }
-                        if (context.mounted) Navigator.pop(context);
-                      },
-                      child: const Text('حفظ'),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
         ],
       ),
     );
   }
 }
 
-// 16. Journal Calendar
-class JournalCalendarScreen extends StatelessWidget {
-  const JournalCalendarScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final box = Storage.box('journal');
-    final entries = box.values.map((e) => JournalEntry.fromMap(Map<String, dynamic>.from(e as Map))).toList();
-    return Scaffold(
-      appBar: AppBar(title: const Text('المفكرة والمزاج')),
-      body: ListView(
-        padding: const EdgeInsets.all(18),
-        children: [
-          NCard(child: TableCalendar(firstDay: DateTime.utc(2020), lastDay: DateTime.utc(2035), focusedDay: DateTime.now())),
-          const SizedBox(height: 12),
-          for (final j in entries)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: NCard(child: ListTile(title: Text(j.content.length > 30 ? '${j.content.substring(0, 30)}...' : j.content), subtitle: Text(j.mood), trailing: Text('${j.date.day}/${j.date.month}'))),
-            ),
-          if (entries.isEmpty) const NCard(child: Text('لا توجد مذكرات')),
-          const SizedBox(height: 12),
-          NButton(
-            label: 'إضافة مذكرة',
-            onTap: () {
-              final title = TextEditingController();
-              final content = TextEditingController();
-              showDialog(
-                context: context,
-                builder: (_) => AlertDialog(
-                  title: const Text('مذكرة جديدة'),
-                  content: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      TextField(controller: title, decoration: const InputDecoration(labelText: 'العنوان')),
-                      TextField(controller: content, decoration: const InputDecoration(labelText: 'المحتوى')),
-                    ],
-                  ),
-                  actions: [
-                    FilledButton(
-                      onPressed: () async {
-                        if (title.text.isNotEmpty) {
-                          final id = const Uuid().v4();
-                          await box.put(id, JournalEntry(id: id, content: content.text.isNotEmpty ? content.text : title.text, date: DateTime.now()).toMap());
-                        }
-                        if (context.mounted) Navigator.pop(context);
-                      },
-                      child: const Text('حفظ'),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// 17. Search
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
+
   @override
-  State<SearchScreen> createState() => _SearchState();
+  State<SearchScreen> createState() => _SearchScreenState();
 }
 
-class _SearchState extends State<SearchScreen> {
-  String _query = '';
+class _SearchScreenState extends State<SearchScreen> {
+  final TextEditingController _controller = TextEditingController();
+  List<String> _results = [];
 
-  @override
-  Widget build(BuildContext context) {
-    final results = <Map<String, dynamic>>[];
-    if (_query.isNotEmpty) {
-      for (final name in ['tasks', 'notes', 'goals', 'journal', 'transactions']) {
-        for (final v in Storage.box(name).values) {
-          if (v is Map && v.values.any((x) => x.toString().toLowerCase().contains(_query.toLowerCase()))) {
-            results.add(Map<String, dynamic>.from(v));
-          }
+  void _search(String query) {
+    final all = <String>[];
+    for (final boxName in Storage.boxNames) {
+      for (final value in Storage.box(boxName).values) {
+        if (value is Map) {
+          all.addAll(value.values.map((item) => '$item'));
+        } else {
+          all.add('$value');
         }
       }
     }
+    final normalized = query.trim().toLowerCase();
+    setState(() {
+      _results = normalized.isEmpty
+          ? []
+          : all.where((value) => value.toLowerCase().contains(normalized)).take(50).toList();
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('البحث الشامل')),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: TextField(
-              onChanged: (v) => setState(() => _query = v),
-              decoration: const InputDecoration(prefixIcon: Icon(LucideIcons.search), hintText: 'ابحث في كل شيء...'),
+      appBar: AppBar(title: const Text('Global Search')),
+      body: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          children: [
+            TextField(
+              controller: _controller,
+              onChanged: _search,
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.search),
+                hintText: 'ابحث في بياناتك',
+              ),
             ),
-          ),
-          Expanded(
-            child: ListView(
-              children: [
-                for (final m in results)
-                  ListTile(
-                    title: Text(m['title']?.toString() ?? 'عنصر'),
-                    subtitle: Text(m.values.join(' - ').toString()),
-                  ),
-              ],
+            const SizedBox(height: 12),
+            Expanded(
+              child: ListView(
+                children: _results.map((value) => ListTile(title: Text(value))).toList(),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
-// 18. Settings + Backup
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
+  Future<void> _showBackup(BuildContext context) async {
+    final data = await Storage.exportJson();
+    if (!context.mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Backup JSON'),
+        content: Text('حجم البيانات الجاهزة للتصدير: ${utf8.encode(data).length} بايت.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('إغلاق')),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isDark = ref.watch(themeProvider);
+    final dark = ref.watch(themeProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('الإعدادات')),
+      appBar: AppBar(title: const Text('Settings')),
       body: ListView(
         padding: const EdgeInsets.all(18),
         children: [
           NCard(
-            child: Column(
-              children: [
-                SwitchListTile(title: const Text('الوضع الداكن'), value: isDark, onChanged: (v) => ref.read(themeProvider.notifier).state = v),
-                ListTile(leading: const Icon(LucideIcons.lock), title: const Text('الخزنة'), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VaultScreen()))),
-                ListTile(leading: const Icon(LucideIcons.search), title: const Text('البحث'), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SearchScreen()))),
-                ListTile(leading: const Icon(LucideIcons.barChart3), title: const Text('الإحصائيات'), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const StatisticsScreen()))),
-              ],
+            child: SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('الوضع الداكن'),
+              value: dark,
+              onChanged: (value) {
+                Storage.box('settings').put('darkMode', value);
+                ref.read(themeProvider.notifier).state = value;
+              },
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           NCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('النسخ الاحتياطي', style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 12),
-                NButton(
-                  label: 'تصدير JSON',
-                  icon: LucideIcons.download,
-                  onTap: () async {
-                    final jsonStr = await Storage.exportJson();
-                    if (context.mounted) {
-                      showDialog(
-                        context: context,
-                        builder: (_) => AlertDialog(
-                          title: const Text('نسخة JSON'),
-                          content: SingleChildScrollView(child: Text(jsonStr.length > 2000 ? '${jsonStr.substring(0, 2000)}...' : jsonStr)),
-                          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('إغلاق'))],
-                        ),
-                      );
-                    }
-                  },
-                ),
-                const SizedBox(height: 8),
-                NButton(
-                  label: 'استيراد JSON',
-                  icon: LucideIcons.upload,
-                  filled: false,
-                  onTap: () async {
-                    final ctl = TextEditingController();
-                    showDialog(
-                      context: context,
-                      builder: (_) => AlertDialog(
-                        title: const Text('استيراد'),
-                        content: TextField(controller: ctl, maxLines: 5, decoration: const InputDecoration(hintText: 'الصق JSON هنا')),
-                        actions: [
-                          FilledButton(
-                            onPressed: () async {
-                              try {
-                                await Storage.importJson(ctl.text);
-                                if (context.mounted) {
-                                  Navigator.pop(context);
-                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم الاستيراد')));
-                                }
-                              } catch (e) {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ: $e')));
-                                }
-                              }
-                            },
-                            child: const Text('استيراد'),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 8),
-                NButton(
-                  label: 'مسح كل البيانات',
-                  icon: LucideIcons.trash2,
-                  filled: false,
-                  onTap: () async {
-                    final ok = await showDialog<bool>(
-                      context: context,
-                      builder: (_) => AlertDialog(
-                        title: const Text('تأكيد'),
-                        content: const Text('هل أنت متأكد من مسح كل البيانات؟'),
-                        actions: [
-                          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('إلغاء')),
-                          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('مسح')),
-                        ],
-                      ),
-                    );
-                    if (ok == true) {
-                      await Storage.clearAll();
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم المسح')));
-                      }
-                    }
-                  },
-                ),
-              ],
+            child: ListTile(
+              leading: const Icon(Icons.lock_outline),
+              title: const Text('Vault OS'),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const VaultScreen()),
+              ),
             ),
           ),
-          const SizedBox(height: 12),
-          const NCard(
-            child: Column(
-              children: [
-                ListTile(title: Text('Nizam OS'), subtitle: Text('الإصدار 1.0.0 - Offline-first RTL')),
-                ListTile(title: Text('المطور'), subtitle: Text('نظام التشغيل الشخصي لإدارة الحياة')),
-              ],
+          NCard(
+            child: ListTile(
+              leading: const Icon(Icons.flag_outlined),
+              title: const Text('الأهداف والمفكرة'),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const GoalsScreen()),
+              ),
+            ),
+          ),
+          NCard(
+            child: ListTile(
+              leading: const Icon(Icons.menu_book_outlined),
+              title: const Text('Journal'),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const JournalScreen()),
+              ),
+            ),
+          ),
+          NCard(
+            child: ListTile(
+              leading: const Icon(Icons.search),
+              title: const Text('البحث الشامل'),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SearchScreen()),
+              ),
+            ),
+          ),
+          NCard(
+            child: ListTile(
+              leading: const Icon(Icons.data_object),
+              title: const Text('نسخ احتياطي JSON'),
+              onTap: () => _showBackup(context),
             ),
           ),
         ],
@@ -1397,62 +1487,51 @@ class SettingsScreen extends ConsumerWidget {
   }
 }
 
-// 19. Statistics
-class StatisticsScreen extends ConsumerWidget {
+class StatisticsScreen extends StatelessWidget {
   const StatisticsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final tasks = ref.watch(tasksProvider);
-    final txs = ref.watch(transactionsProvider);
-    final done = tasks.where((t) => t.done).length;
+  Widget build(BuildContext context) {
+    final tasks = Storage.box('tasks').values.length;
+    final transactions = Storage.box('transactions').values.length;
+    final habits = Storage.box('habits').values.length;
+    final notes = Storage.box('notes').values.length;
     return Scaffold(
-      appBar: AppBar(title: const Text('الإحصائيات')),
+      appBar: AppBar(title: const Text('Statistics')),
       body: ListView(
         padding: const EdgeInsets.all(18),
         children: [
-          NCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('إنتاجية المهام', style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: 200,
-                  child: PieChart(
-                    PieChartData(
-                      sections: [
-                        PieChartSectionData(value: done.toDouble() == 0 ? 1 : done.toDouble(), title: 'منجز', color: AppTheme.green),
-                        PieChartSectionData(value: (tasks.length - done).toDouble() == 0 ? 1 : (tasks.length - done).toDouble(), title: 'متبقي', color: Colors.grey),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          NCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('المالية', style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: 200,
-                  child: BarChart(
-                    BarChartData(
-                      barGroups: [
-                        BarChartGroupData(x: 0, barRods: [BarChartRodData(toY: txs.where((t) => t.type == 'income').fold(0.0, (s, t) => s + t.amount), color: AppTheme.green)]),
-                        BarChartGroupData(x: 1, barRods: [BarChartRodData(toY: txs.where((t) => t.type == 'expense').fold(0.0, (s, t) => s + t.amount), color: AppTheme.amber)]),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+          _StatTile(title: 'المهام', value: tasks),
+          _StatTile(title: 'المعاملات', value: transactions),
+          _StatTile(title: 'العادات', value: habits),
+          _StatTile(title: 'الملاحظات', value: notes),
         ],
+      ),
+    );
+  }
+}
+
+class _StatTile extends StatelessWidget {
+  const _StatTile({required this.title, required this.value});
+
+  final String title;
+  final int value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: NCard(
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(title),
+            Text(
+              '$value',
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ],
+        ),
       ),
     );
   }
