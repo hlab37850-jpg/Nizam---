@@ -75,29 +75,30 @@ jobs:
           PY
           grep -F 'gradle-8.4-bin.zip' android/gradle/wrapper/gradle-wrapper.properties
 
-      - name: Patch Flutter 3.22.3 QName classpath
+      - name: Patch Flutter 3.22.3 Groovy QName dependency
         shell: bash
         run: |
           set -euo pipefail
-          export FLUTTER_PLUGIN_DIR="$FLUTTER_ROOT/packages/flutter_tools/gradle"
-          test -f "$FLUTTER_PLUGIN_DIR/build.gradle.kts"
-          test -f "$FLUTTER_PLUGIN_DIR/src/main/groovy/flutter.groovy"
-          grep -Fq 'import groovy.xml.QName' "$FLUTTER_PLUGIN_DIR/src/main/groovy/flutter.groovy"
+          export FLUTTER_GROOVY="$FLUTTER_ROOT/packages/flutter_tools/gradle/src/main/groovy/flutter.groovy"
+          test -f "$FLUTTER_GROOVY"
           python3 - <<'PY'
           import os
           from pathlib import Path
-          root = Path(os.environ['FLUTTER_PLUGIN_DIR'])
-          build = root / 'build.gradle.kts'
-          text = build.read_text()
-          dep = 'implementation("org.codehaus.groovy:groovy-xml:3.0.17")'
-          if dep not in text:
-              marker = 'compileOnly("com.android.tools.build:gradle:7.3.0")'
-              if marker not in text:
-                  raise SystemExit('Unexpected Flutter 3.22.3 Gradle plugin layout.')
-              text = text.replace(marker, marker + '\n    ' + dep, 1)
-              build.write_text(text)
+          p = Path(os.environ["FLUTTER_GROOVY"])
+          s = p.read_text()
+          old_import = "import groovy.xml.QName\n"
+          if old_import not in s:
+              raise SystemExit("Unexpected Flutter 3.22.3 flutter.groovy: QName import not found.")
+          s = s.replace(old_import, "", 1)
+          old = "if (entry.key instanceof QName) {\n                                             switch (entry.key.getLocalPart()) {"
+          new = "def localPart = entry.key?.respondsTo('getLocalPart') ? entry.key.getLocalPart() : entry.key?.toString()\n                                         if (localPart != null) {\n                                             switch (localPart) {"
+          if old not in s:
+              raise SystemExit("Unexpected Flutter 3.22.3 flutter.groovy: QName usage layout not found.")
+          s = s.replace(old, new, 1)
+          p.write_text(s)
           PY
-          grep -Fq 'implementation("org.codehaus.groovy:groovy-xml:3.0.17")' "$FLUTTER_PLUGIN_DIR/build.gradle.kts"
+          ! grep -Fq 'import groovy.xml.QName' "$FLUTTER_GROOVY"
+          ! grep -Fq 'instanceof QName' "$FLUTTER_GROOVY"
 
       - name: Get dependencies
         run: flutter pub get
