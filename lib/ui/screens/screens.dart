@@ -77,7 +77,7 @@ class _OnboardingState extends State<OnboardingScreen> {
               child: PageView(
                 controller: _page,
                 onPageChanged: (i) => setState(() => _index = i),
-                children: const [
+                children: [
                   _OnboardingPage(title: 'نظامك الشخصي', desc: 'إدارة المهام والمال والعادات في مكان واحد بتصميم عربي أصيل.'),
                   _OnboardingPage(title: 'خصوصيتك أولاً', desc: 'بياناتك محلية ومشفرة بـ Hive + SecureStorage بدون تتبع.'),
                   _OnboardingPage(title: 'ابدأ الآن', desc: 'ابن يومك حول أهدافك الحقيقية مع Kanban و Pomodoro.'),
@@ -1117,7 +1117,7 @@ class GoalsTimelineScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(g.title, style: Theme.of(context).textTheme.titleMedium),
-                    Text('التقدم: ${(g.progress * 100).round()}% - ${g.createdAt.day}/${g.createdAt.month}/${g.createdAt.year}'),
+                    Text('التقدم: ${(g.progress*100).round()}%'),
                     const SizedBox(height: 8),
                     LinearProgressIndicator(value: g.progress),
                     Text('${(g.progress * 100).round()}%'),
@@ -1131,6 +1131,7 @@ class GoalsTimelineScreen extends StatelessWidget {
             label: 'إضافة هدف',
             onTap: () {
               final title = TextEditingController();
+              final desc = TextEditingController();
               showDialog(
                 context: context,
                 builder: (_) => AlertDialog(
@@ -1139,6 +1140,7 @@ class GoalsTimelineScreen extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       TextField(controller: title, decoration: const InputDecoration(labelText: 'العنوان')),
+                      TextField(controller: desc, decoration: const InputDecoration(labelText: 'الوصف')),
                     ],
                   ),
                   actions: [
@@ -1181,7 +1183,7 @@ class JournalCalendarScreen extends StatelessWidget {
           for (final j in entries)
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
-              child: NCard(child: ListTile(title: Text(j.content.length > 30 ? j.content.substring(0,30)+'...' : j.content), subtitle: Text(j.mood), trailing: Text('${j.date.day}/${j.date.month}'))),
+              child: NCard(child: ListTile(title: Text(j.content.length > 30 ? '${j.content.substring(0, 30)}...' : j.content), subtitle: Text(j.mood), trailing: Text('${j.date.day}/${j.date.month}'))),
             ),
           if (entries.isEmpty) const NCard(child: Text('لا توجد مذكرات')),
           const SizedBox(height: 12),
