@@ -1,55 +1,490 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
+import 'package:local_auth/local_auth.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:table_calendar/table_calendar.dart';
-import 'package:uuid/uuid.dart';
-import 'package:lucide_icons/lucide_icons.dart';
 import '../../core/storage.dart';
 import '../../core/models.dart';
 import '../../core/theme.dart';
 import '../../providers/app_provider.dart';
-import '../../services/vault.dart';
-import '../../services/notifications.dart';
-import '../widgets/common.dart';
 
-class SplashScreen extends StatefulWidget{const SplashScreen({super.key});@override State<SplashScreen> createState()=>_Splash();}
-class _Splash extends State<SplashScreen>{@override void initState(){super.initState();Future.delayed(const Duration(milliseconds:900),(){if(mounted)Navigator.pushReplacement(context,MaterialPageRoute(builder:(_)=>const OnboardingScreen()));});}@override Widget build(c)=>Scaffold(body:Center(child:Column(mainAxisSize:MainAxisSize.min,children:[_Logo(),const SizedBox(height:18),Text('Nizam OS',style:Theme.of(c).textTheme.headlineMedium?.copyWith(fontWeight:FontWeight.bold)),const SizedBox(height:8),const CircularProgressIndicator()]));}
-class _Logo extends StatelessWidget{const _Logo();@override Widget build(c)=>Container(width:86,height:86,decoration:BoxDecoration(shape:BoxShape.circle,color:AppTheme.purple),child:const Center(child:Text('ن',style:TextStyle(color:Colors.white,fontSize:48,fontWeight:FontWeight.bold))));}
-class OnboardingScreen extends StatefulWidget{const OnboardingScreen({super.key});@override State<OnboardingScreen> createState()=>_Onb();}
-class _Onb extends State<OnboardingScreen>{final p=PageController();int i=0;final pages=[('نظامك الشخصي','إدارة المهام والمال والعادات والمعرفة في مكان واحد.'),('خصوصيتك أولاً','بياناتك محلية ومشفرة، ولا تحتاج إلى Firebase.'),('ابدأ الآن','ابنِ يومك حول أهدافك وبياناتك الحقيقية.')];@override Widget build(c)=>Scaffold(body:SafeArea(child:Column(children:[Expanded(child:PageView.builder(controller:p,itemCount:3,onPageChanged:(x)=>setState(()=>i=x),itemBuilder:(c,x)=>Center(child:Padding(padding:const EdgeInsets.all(30),child:Column(mainAxisSize:MainAxisSize.min,children:[_Logo(),const SizedBox(height:30),Text(pages[x].$1,style:Theme.of(c).textTheme.headlineMedium,textAlign:TextAlign.center),const SizedBox(height:12),Text(pages[x].$2,textAlign:TextAlign.center)]))))),Row(mainAxisAlignment:MainAxisAlignment.center,children:List.generate(3,(x)=>Container(width:9,height:9,margin:const EdgeInsets.all(4),decoration:BoxDecoration(shape:BoxShape.circle,color:x==i?AppTheme.purple:Colors.grey)))),Padding(padding:const EdgeInsets.all(24),child:SizedBox(width:double.infinity,child:NButton(label:i==2?'دخول Nizam OS':'التالي',onTap:()=>i==2?Navigator.pushReplacement(context,MaterialPageRoute(builder:(_)=>const Shell())):p.nextPage(duration:const Duration(milliseconds:250),curve:Curves.easeOut))))]));}}
-class Shell extends StatefulWidget{const Shell({super.key});@override State<Shell> createState()=>_Shell();}
-class _Shell extends State<Shell>{int index=0;final pages=const [DashboardScreen(),TasksScreen(),FinanceScreen(),HabitsScreen(),SettingsScreen()];@override Widget build(c)=>Scaffold(body:pages[index],bottomNavigationBar:Padding(padding:const EdgeInsets.fromLTRB(10,0,10,10),child:GlassNav(index:index,onTap:(i)=>setState(()=>index=i))));}
+class LogoMark extends StatelessWidget {
+  const LogoMark({super.key, this.size = 72});
+  final double size;
+  @override
+  Widget build(BuildContext context) => Container(
+    width: size, height: size,
+    decoration: const BoxDecoration(
+      shape: BoxShape.circle, color: AppTheme.purple,
+    ),
+    alignment: Alignment.center,
+    child: Text('ن', style: TextStyle(
+      color: Colors.white, fontSize: size * .55, fontWeight: FontWeight.w800,
+    )),
+  );
+}
 
-class DashboardScreen extends ConsumerWidget{const DashboardScreen({super.key});@override Widget build(c,ref){final tasks=ref.watch(tasksProvider);final balance=ref.watch(financeProvider);final done=tasks.where((x)=>x.done).length;return SafeArea(child:CustomScrollView(slivers:[SliverPadding(padding:const EdgeInsets.all(18),sliver:SliverToBoxAdapter(child:Row(mainAxisAlignment:MainAxisAlignment.spaceBetween,children:[Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('مساء الخير 👋',style:Theme.of(c).textTheme.titleMedium),Text('Nizam OS',style:Theme.of(c).textTheme.headlineMedium?.copyWith(fontWeight:FontWeight.w800))]),_Logo()]))),SliverPadding(padding:const EdgeInsets.fromLTRB(18,18,18,0),sliver:SliverGrid(delegate:SliverChildListDelegate([_Stat('المهام', '${done}/${tasks.length}',LucideIcons.checkCircle),_Stat('الرصيد',balance.toStringAsFixed(2),LucideIcons.wallet),_Stat('العادات','0',LucideIcons.flame),_Stat('الإنتاجية',tasks.isEmpty?'0%':'${(done*100/tasks.length).round()}%',LucideIcons.trendingUp)]),gridDelegate:const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount:2,crossAxisSpacing:12,mainAxisSpacing:12,childAspectRatio:1.45))),SliverPadding(padding:const EdgeInsets.all(18),sliver:SliverToBoxAdapter(child:NCard(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('مهام اليوم',style:Theme.of(c).textTheme.titleLarge),const SizedBox(height:12),if(tasks.isEmpty)const Text('لا توجد مهام بعد.'),...tasks.take(5).map((t)=>ListTile(contentPadding:EdgeInsets.zero,title:Text(t.title),leading:Icon(t.done?LucideIcons.checkCircle2:LucideIcons.circle,color:t.done?AppTheme.green:null)))])))),SliverPadding(padding:const EdgeInsets.fromLTRB(18,0,18,30),sliver:SliverToBoxAdapter(child:NCard(child:SizedBox(height:170,child:LineChart(LineChartData(gridData:const FlGridData(show:false),titlesData:const FlTitlesData(show:false),borderData:FlBorderData(show:false),lineBarsData:[LineChartBarData(isCurved:true,barWidth:3,dotData:const FlDotData(show:false),spots:const [FlSpot(0,2),FlSpot(1,3),FlSpot(2,2),FlSpot(3,4),FlSpot(4,3),FlSpot(5,5),FlSpot(6,4)])])))))]));}}
-class _Stat extends StatelessWidget{final String a,b;final IconData icon;const _Stat(this.a,this.b,this.icon);@override Widget build(c)=>NCard(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Icon(icon,color:AppTheme.purple),const Spacer(),Text(b,style:Theme.of(c).textTheme.titleLarge?.copyWith(fontWeight:FontWeight.bold)),Text(a)]));}
+class SplashScreen extends StatefulWidget {
+  const SplashScreen({super.key});
+  @override State<SplashScreen> createState() => _SplashState();
+}
+class _SplashState extends State<SplashScreen> {
+  @override void initState() {
+    super.initState();
+    Timer(const Duration(milliseconds: 900), () {
+      if (mounted) Navigator.pushReplacement(context,
+        MaterialPageRoute(builder: (_) => const OnboardingScreen()));
+    });
+  }
+  @override Widget build(BuildContext context) => Scaffold(
+    body: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+      const LogoMark(),
+      const SizedBox(height: 18),
+      Text('Nizam OS', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800)),
+      const SizedBox(height: 8),
+      const Text('نظام التشغيل الشخصي'),
+      const SizedBox(height: 24),
+      const CircularProgressIndicator(),
+    ])),
+  );
+}
 
-class TasksScreen extends ConsumerWidget{const TasksScreen({super.key});@override Widget build(c,ref){final tasks=ref.watch(tasksProvider);return Scaffold(appBar:AppBar(title:const Text('Task OS'),actions:[IconButton(onPressed:()=>_add(c,ref),icon:const Icon(LucideIcons.plus))]),body:ListView(padding:const EdgeInsets.all(18),children:[for(final status in ['todo','doing','done'])NCard(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(status=='todo'?'To Do':status=='doing'?'Doing':'Done',style:Theme.of(c).textTheme.titleLarge),...tasks.where((t)=>t.status==status).map((t)=>ListTile(title:Text(t.title),subtitle:Text(t.project),leading:Checkbox(value:t.done,onChanged:(_)=>ref.read(tasksProvider.notifier).toggle(t)),trailing:PopupMenuButton<String>(onSelected:(s)=>ref.read(tasksProvider.notifier).move(t,s),itemBuilder:(_)=>const [PopupMenuItem(value:'todo',child:Text('To Do')),PopupMenuItem(value:'doing',child:Text('Doing')),PopupMenuItem(value:'done',child:Text('Done'))])))])),const SizedBox(height:12)]));}}
-void _add(BuildContext c,WidgetRef ref){final ctl=TextEditingController();showDialog(context:c,builder:(_)=>AlertDialog(title:const Text('مهمة جديدة'),content:TextField(controller:ctl,autofocus:true,decoration:const InputDecoration(hintText:'عنوان المهمة')),actions:[TextButton(onPressed:()=>Navigator.pop(c),child:const Text('إلغاء')),FilledButton(onPressed:()async{if(ctl.text.trim().isNotEmpty)await ref.read(tasksProvider.notifier).add(ctl.text.trim());if(c.mounted)Navigator.pop(c);},child:const Text('حفظ'))]));}
+class OnboardingScreen extends StatefulWidget {
+  const OnboardingScreen({super.key});
+  @override State<OnboardingScreen> createState() => _OnboardingState();
+}
+class _OnboardingState extends State<OnboardingScreen> {
+  final controller = PageController();
+  int index = 0;
+  final pages = const [
+    ('نظامك الشخصي', 'المهام والمال والعادات والأهداف والمعرفة في مكان واحد.'),
+    ('خصوصيتك أولاً', 'تخزين محلي مشفر وبدون Firebase أو اعتماد على الإنترنت.'),
+    ('ابدأ الآن', 'بياناتك الحقيقية محفوظة على جهازك ويمكن نسخها احتياطياً.'),
+  ];
+  @override Widget build(BuildContext context) => Scaffold(
+    body: SafeArea(child: Column(children: [
+      Expanded(child: PageView.builder(
+        controller: controller, itemCount: pages.length,
+        onPageChanged: (v) => setState(() => index = v),
+        itemBuilder: (_, i) => Center(child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const LogoMark(size: 86), const SizedBox(height: 28),
+            Text(pages[i].$1, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+            const SizedBox(height: 12),
+            Text(pages[i].$2, textAlign: TextAlign.center),
+          ]),
+        )),
+      )),
+      Row(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(3, (i) =>
+        Container(width: 9, height: 9, margin: const EdgeInsets.all(4),
+          decoration: BoxDecoration(shape: BoxShape.circle, color: i == index ? AppTheme.purple : Colors.grey.shade400)))),
+      Padding(padding: const EdgeInsets.all(24), child: SizedBox(width: double.infinity,
+        child: FilledButton(
+          onPressed: () {
+            if (index == 2) {
+              Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AppShell()));
+            } else {
+              controller.nextPage(duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
+            }
+          },
+          child: Text(index == 2 ? 'دخول Nizam OS' : 'التالي'),
+        ))),
+    ])),
+  );
+}
 
-class FinanceScreen extends ConsumerStatefulWidget{const FinanceScreen({super.key});@override ConsumerState<FinanceScreen> createState()=>_Fin();}
-class _Fin extends ConsumerState<FinanceScreen>{String type='expense';@override Widget build(c){final b=Storage.box('transactions');final values=b.values.map((e)=>Map<String,dynamic>.from(e as Map)).toList();final income=values.where((m)=>m['type']=='income').fold<double>(0,(s,m)=>s+(m['amount'] as num).toDouble());final expense=values.where((m)=>m['type']=='expense').fold<double>(0,(s,m)=>s+(m['amount'] as num).toDouble());return Scaffold(appBar:AppBar(title:const Text('Finance OS'),actions:[IconButton(onPressed:()=>_addTx(c),icon:const Icon(LucideIcons.plus))]),body:ListView(padding:const EdgeInsets.all(18),children:[NCard(child:Column(children:[Text('الرصيد الحقيقي',style:Theme.of(c).textTheme.titleMedium),Text((income-expense).toStringAsFixed(2),style:Theme.of(c).textTheme.displaySmall?.copyWith(fontWeight:FontWeight.bold)),SizedBox(height:180,child:PieChart(PieChartData(sections:[PieChartSectionData(value:income,title:'دخل'),PieChartSectionData(value:expense,title:'مصروف')])))])),const SizedBox(height:12),NCard(child:Column(children:[Text('المعاملات',style:Theme.of(c).textTheme.titleLarge),...values.reversed.take(20).map((m)=>ListTile(title:Text(m['title']),subtitle:Text(m['type']),trailing:Text('${m['amount']}')))]))]);}
-Future<void> _addTx(BuildContext c)async{final title=TextEditingController();final amount=TextEditingController();await showDialog(context:c,builder:(_)=>AlertDialog(title:const Text('معاملة'),content:Column(mainAxisSize:MainAxisSize.min,children:[TextField(controller:title,decoration:const InputDecoration(labelText:'الوصف')),TextField(controller:amount,keyboardType:TextInputType.number,decoration:const InputDecoration(labelText:'المبلغ')),DropdownButton<String>(value:type,items:const [DropdownMenuItem(value:'expense',child:Text('مصروف')),DropdownMenuItem(value:'income',child:Text('دخل'))],onChanged:(v)=>setState(()=>type=v!))]),actions:[FilledButton(onPressed:()async{final a=double.tryParse(amount.text);if(title.text.isNotEmpty&&a!=null){await Storage.box('transactions').put(const Uuid().v4(),{'title':title.text,'amount':a,'type':type,'date':DateTime.now().toIso8601String()});setState((){});}if(c.mounted)Navigator.pop(c);},child:const Text('حفظ'))]));}}
-class HabitsScreen extends ConsumerStatefulWidget{const HabitsScreen({super.key});@override ConsumerState<HabitsScreen> createState()=>_Habits();}
-class _Habits extends ConsumerState<HabitsScreen>{@override Widget build(c){final h=Storage.box('habits');final habits=h.values.map((e)=>Map<String,dynamic>.from(e as Map)).toList();return Scaffold(appBar:AppBar(title:const Text('Habit OS')),body:ListView(padding:const EdgeInsets.all(18),children:[NCard(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('عاداتك',style:Theme.of(c).textTheme.headlineSmall),const SizedBox(height:12),if(habits.isEmpty)const Text('أضف أول عادة لتبدأ.'),...habits.map((m)=>ListTile(title:Text(m['name']),leading:const Icon(LucideIcons.flame),trailing:Text('🔥 ${m['streak']??0}'))),NButton(label:'إضافة عادة',onTap:()=>_add(c))])),const SizedBox(height:12),NCard(child:Column(children:[const Text('الصلوات الخمس'),for(final p in ['الفجر','الظهر','العصر','المغرب','العشاء'])CheckboxListTile(value:false,onChanged:(_){},title:Text(p))])),const SizedBox(height:12),NCard(child:Column(children:[const Text('ماء ونوم'),ListTile(title:const Text('الماء'),trailing:Text('${Storage.box('water').get('today',defaultValue:0)} كوب')),ListTile(title:const Text('النوم'),trailing:Text('${Storage.box('sleep').get('last',defaultValue:0)} ساعة'))]))]);}
-Future<void> _add(BuildContext c)async{final t=TextEditingController();await showDialog(context:c,builder:(_)=>AlertDialog(title:const Text('عادة'),content:TextField(controller:t,decoration:const InputDecoration(hintText:'اسم العادة')),actions:[FilledButton(onPressed:()async{if(t.text.trim().isNotEmpty)await Storage.box('habits').put(const Uuid().v4(),{'name':t.text.trim(),'streak':0,'createdAt':DateTime.now().toIso8601String()});if(c.mounted){Navigator.pop(c);setState((){});}},child:const Text('حفظ'))]));}}
-class VaultScreen extends StatefulWidget{const VaultScreen({super.key});@override State<VaultScreen> createState()=>_Vault();}
-class _Vault extends State<VaultScreen>{bool unlocked=false;@override void initState(){super.initState();_unlock();}Future<void> _unlock()async{final ok=await VaultService.unlock();if(mounted)setState(()=>unlocked=ok);} @override Widget build(c){final b=Storage.box('vault');final vals=b.values.map((e)=>Map<String,dynamic>.from(e as Map)).toList();return Scaffold(appBar:AppBar(title:const Text('Vault OS')),body:unlocked?ListView(padding:const EdgeInsets.all(18),children:[...vals.map((m)=>NCard(child:ListTile(title:Text(m['title']),subtitle:Text(m['secret'])))),NButton(label:'إضافة سر',onTap:()=>_add(c))]):Center(child:Column(mainAxisSize:MainAxisSize.min,children:[const Icon(LucideIcons.lockKeyhole,size:64),const SizedBox(height:12),const Text('الخزنة مقفلة'),NButton(label:'فتح بالبصمة',onTap:_unlock)]));}Future<void>_add(BuildContext c)async{final a=TextEditingController(),s=TextEditingController();await showDialog(context:c,builder:(_)=>AlertDialog(title:const Text('سر جديد'),content:Column(mainAxisSize:MainAxisSize.min,children:[TextField(controller:a,decoration:const InputDecoration(labelText:'العنوان')),TextField(controller:s,obscureText:true,decoration:const InputDecoration(labelText:'المحتوى'))]),actions:[FilledButton(onPressed:()async{await VaultService.put(a.text,s.text);if(c.mounted){Navigator.pop(c);setState((){});}},child:const Text('حفظ'))]));}}
-class GoalsScreen extends StatelessWidget{const GoalsScreen({super.key});@override Widget build(c)=>_Simple(title:'Goals & Journal',icon:LucideIcons.target,body:TableCalendar(firstDay:DateTime.utc(2020),lastDay:DateTime.utc(2035),focusedDay:DateTime.now()));}
-class SearchScreen extends StatefulWidget{const SearchScreen({super.key});@override State<SearchScreen> createState()=>_Search();}
-class _Search extends State<SearchScreen>{String q='';@override Widget build(c){final results=<Map<String,dynamic>>[];for(final name in ['tasks','notes','goals','journal'])for(final v in Storage.box(name).values){if(v is Map && q.isNotEmpty && v.values.any((x)=>x.toString().toLowerCase().contains(q.toLowerCase())))results.add(Map<String,dynamic>.from(v));}return Scaffold(appBar:AppBar(title:const Text('Global Search')),body:Column(children:[Padding(padding:const EdgeInsets.all(16),child:TextField(onChanged:(v)=>setState(()=>q=v),decoration:const InputDecoration(prefixIcon:Icon(LucideIcons.search),hintText:'ابحث في كل شيء'))),Expanded(child:ListView(children:results.map((m)=>ListTile(title:Text(m['title']?.toString()??'عنصر'),subtitle:Text(m.values.join(' • '))).toList())))]);}}
-class SettingsScreen extends StatefulWidget{const SettingsScreen({super.key});@override State<SettingsScreen> createState()=>_Settings();}
-class _Settings extends State<SettingsScreen>{@override Widget build(c)=>Scaffold(appBar:AppBar(title:const Text('الإعدادات')),body:ListView(padding:const EdgeInsets.all(18),children:[NCard(child:Column(children:[SwitchListTile(title:const Text('الوضع الداكن'),value:Theme.of(c).brightness==Brightness.dark,onChanged:(v)=>setState((){})),ListTile(leading:const Icon(LucideIcons.lock),title:const Text('Vault OS'),onTap:()=>Navigator.push(c,MaterialPageRoute(builder:(_)=>const VaultScreen()))),ListTile(leading:const Icon(LucideIcons.target),title:const Text('الأهداف والمفكرة'),onTap:()=>Navigator.push(c,MaterialPageRoute(builder:(_)=>const GoalsScreen()))),ListTile(leading:const Icon(LucideIcons.search),title:const Text('البحث الشامل'),onTap:()=>Navigator.push(c,MaterialPageRoute(builder:(_)=>const SearchScreen()))),ListTile(leading:const Icon(LucideIcons.download),title:const Text('نسخة JSON'),onTap:()async{final json=await Storage.exportJson();if(c.mounted)ScaffoldMessenger.of(c).showSnackBar(SnackBar(content:Text('تم تجهيز ${json.length} حرفًا من البيانات المحلية')));})]))]));}}
-class _Simple extends StatelessWidget{final String title;final IconData icon;final Widget body;const _Simple({required this.title,required this.icon,required this.body});@override Widget build(c)=>Scaffold(appBar:AppBar(title:Text(title)),body:Padding(padding:const EdgeInsets.all(18),child:NCard(child:Column(children:[Icon(icon,size:50,color:AppTheme.purple),const SizedBox(height:12),Expanded(child:body)]))));}
+class AppShell extends StatefulWidget {
+  const AppShell({super.key});
+  @override State<AppShell> createState() => _AppShellState();
+}
+class _AppShellState extends State<AppShell> {
+  int index = 0;
+  final screens = const [
+    DashboardScreen(), TasksScreen(), FinanceScreen(), HabitsScreen(), SettingsScreen()
+  ];
+  @override Widget build(BuildContext context) => Scaffold(
+    body: IndexedStack(index: index, children: screens),
+    bottomNavigationBar: NavigationBar(
+      selectedIndex: index,
+      onDestinationSelected: (v) => setState(() => index = v),
+      destinations: const [
+        NavigationDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard), label: 'الرئيسية'),
+        NavigationDestination(icon: Icon(Icons.check_circle_outline), selectedIcon: Icon(Icons.check_circle), label: 'المهام'),
+        NavigationDestination(icon: Icon(Icons.account_balance_wallet_outlined), selectedIcon: Icon(Icons.account_balance_wallet), label: 'المال'),
+        NavigationDestination(icon: Icon(Icons.local_fire_department_outlined), selectedIcon: Icon(Icons.local_fire_department), label: 'العادات'),
+        NavigationDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings), label: 'الإعدادات'),
+      ],
+    ),
+  );
+}
 
-class TaskDetailScreen extends StatelessWidget{final Task task;const TaskDetailScreen({super.key,required this.task});@override Widget build(c)=>_Simple(title:'تفاصيل المهمة',icon:LucideIcons.checkSquare,body:ListView(children:[Text(task.title,style:Theme.of(c).textTheme.headlineSmall),Text('المشروع: ${task.project.isEmpty?'بدون مشروع':task.project}'),Text('الحالة: ${task.status}'),const SizedBox(height:20),NButton(label:'Pomodoro 25 دقيقة',onTap:()=>_pomodoro(c))]));}
-void _pomodoro(BuildContext c){var left=25*60;Timer? timer;showDialog(context:c,builder:(_){return StatefulBuilder(builder:(c,set){timer??=Timer.periodic(const Duration(seconds:1),(_){if(left>0)set(()=>left--);});return AlertDialog(title:const Text('Pomodoro'),content:Text('${left~/60}:${(left%60).toString().padLeft(2,'0')}',style:Theme.of(c).textTheme.displayMedium),actions:[TextButton(onPressed:(){timer?.cancel();Navigator.pop(c);},child:const Text('إيقاف'))]);});}).then((_){timer?.cancel();});}
-class WalletsScreen extends StatelessWidget{const WalletsScreen({super.key});@override Widget build(c)=>_BoxList(title:'Wallets',box:'wallets',label:'محفظة');}
-class BudgetsScreen extends StatelessWidget{const BudgetsScreen({super.key});@override Widget build(c)=>_BoxList(title:'Budgets',box:'budgets',label:'ميزانية');}
-class DebtsScreen extends StatelessWidget{const DebtsScreen({super.key});@override Widget build(c)=>_BoxList(title:'Debts',box:'debts',label:'دين');}
-class PrayerScreen extends StatelessWidget{const PrayerScreen({super.key});@override Widget build(c)=>Scaffold(appBar:AppBar(title:const Text('متتبع الصلاة')),body:ListView(padding:const EdgeInsets.all(18),children:[NCard(child:Column(children:[for(final p in ['الفجر','الظهر','العصر','المغرب','العشاء'])CheckboxListTile(value:false,onChanged:(_){},title:Text(p))]))]));}
-class JournalScreen extends StatelessWidget{const JournalScreen({super.key});@override Widget build(c)=>Scaffold(appBar:AppBar(title:const Text('المفكرة')),body:ListView(padding:const EdgeInsets.all(18),children:[NCard(child:TableCalendar(firstDay:DateTime.utc(2020),lastDay:DateTime.utc(2035),focusedDay:DateTime.now())),const SizedBox(height:12),NCard(child:const TextField(maxLines:8,decoration:InputDecoration(hintText:'اكتب يومياتك...')))]);}
-class StatisticsScreen extends ConsumerWidget{const StatisticsScreen({super.key});@override Widget build(c,ref){final t=ref.watch(tasksProvider);final d=t.where((x)=>x.done).length;return _Simple(title:'Statistics',icon:LucideIcons.barChart3,body:ListView(children:[Text('إنجاز المهام: ${t.isEmpty?0:(d*100/t.length).round()}%'),const SizedBox(height:20),SizedBox(height:220,child:BarChart(BarChartData(barGroups:[BarChartGroupData(x:0,barRods:[BarChartRodData(toY:d.toDouble())]),BarChartGroupData(x:1,barRods:[BarChartRodData(toY:(t.length-d).toDouble())])]))))]));}}
-class NotesScreen extends StatefulWidget{const NotesScreen({super.key});@override State<NotesScreen> createState()=>_Notes();}
-class _Notes extends State<NotesScreen>{@override Widget build(c){final b=Storage.box('notes');return Scaffold(appBar:AppBar(title:const Text('Knowledge'),actions:[IconButton(onPressed:()=>_add(c),icon:const Icon(LucideIcons.plus))]),body:ListView(padding:const EdgeInsets.all(18),children:b.values.map((e){final m=Map<String,dynamic>.from(e as Map);return NCard(child:ListTile(title:Text(m['title']??''),subtitle:Text(m['body']??'')));}).toList());}Future<void>_add(BuildContext c)async{final t=TextEditingController(),b=TextEditingController();await showDialog(context:c,builder:(_)=>AlertDialog(title:const Text('ملاحظة'),content:Column(mainAxisSize:MainAxisSize.min,children:[TextField(controller:t,decoration:const InputDecoration(labelText:'العنوان')),TextField(controller:b,maxLines:4,decoration:const InputDecoration(labelText:'النص'))]),actions:[FilledButton(onPressed:()async{await Storage.box('notes').put(const Uuid().v4(),{'title':t.text,'body':b.text,'date':DateTime.now().toIso8601String()});if(c.mounted){Navigator.pop(c);setState((){});}},child:const Text('حفظ'))]));}}
-class _BoxList extends StatelessWidget{final String title,box,label;const _BoxList({required this.title,required this.box,required this.label});@override Widget build(c){final b=Storage.box(box);return Scaffold(appBar:AppBar(title:Text(title)),body:ListView(padding:const EdgeInsets.all(18),children:[...b.values.map((e){final m=Map<String,dynamic>.from(e as Map);return NCard(child:ListTile(title:Text(m['name']??label),subtitle:Text(m['amount']?.toString()??'')));}),NButton(label:'إضافة $label',onTap:()async{await b.put(const Uuid().v4(),{'name':label,'amount':0,'createdAt':DateTime.now().toIso8601String()});})]));}}
+class DashboardScreen extends ConsumerWidget {
+  const DashboardScreen({super.key});
+  @override Widget build(BuildContext context, WidgetRef ref) {
+    final tasks = ref.watch(tasksProvider);
+    final balance = ref.watch(financeProvider);
+    final done = tasks.where((t) => t.done).length;
+    return SafeArea(child: ListView(padding: const EdgeInsets.all(18), children: [
+      Row(children: [
+        const LogoMark(size: 52), const SizedBox(width: 12),
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Nizam OS', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
+          const Text('نظرة سريعة على يومك'),
+        ]),
+      ]),
+      const SizedBox(height: 18),
+      GridView.count(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
+        crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 1.5,
+        children: [
+          StatCard('المهام', '$done / ${tasks.length}', Icons.task_alt),
+          StatCard('الرصيد', balance.toStringAsFixed(2), Icons.wallet),
+          StatCard('العادات', '${Storage.box('habits').length}', Icons.local_fire_department),
+          StatCard('الأهداف', '${Storage.box('goals').length}', Icons.flag),
+        ]),
+      const SizedBox(height: 14),
+      Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('مهام اليوم', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        if (tasks.isEmpty) const Text('لا توجد مهام. أضف أول مهمة من Task OS.'),
+        ...tasks.take(5).map((t) => CheckboxListTile(
+          contentPadding: EdgeInsets.zero, value: t.done, title: Text(t.title),
+          onChanged: (_) => ref.read(tasksProvider.notifier).toggle(t),
+        )),
+      ]))),
+      const SizedBox(height: 14),
+      Card(child: Padding(padding: const EdgeInsets.all(16), child: SizedBox(height: 170,
+        child: LineChart(LineChartData(
+          gridData: const FlGridData(show: false), titlesData: const FlTitlesData(show: false),
+          borderData: FlBorderData(show: false),
+          lineBarsData: [LineChartBarData(
+            spots: const [FlSpot(0, 2),FlSpot(1,3),FlSpot(2,2),FlSpot(3,4),FlSpot(4,3),FlSpot(5,5),FlSpot(6,4)],
+            isCurved: true, barWidth: 3, dotData: const FlDotData(show: false),
+          )],
+        )),
+      ))),
+    ]));
+  }
+}
+
+class StatCard extends StatelessWidget {
+  const StatCard(this.title, this.value, this.icon, {super.key});
+  final String title, value; final IconData icon;
+  @override Widget build(BuildContext context) => Card(child: Padding(
+    padding: const EdgeInsets.all(14),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Icon(icon, color: AppTheme.purple), const Spacer(),
+      Text(value, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+      Text(title),
+    ]),
+  ));
+}
+
+class TasksScreen extends ConsumerWidget {
+  const TasksScreen({super.key});
+  @override Widget build(BuildContext context, WidgetRef ref) {
+    final tasks = ref.watch(tasksProvider);
+    return Scaffold(
+      appBar: AppBar(title: const Text('Task OS'), actions: [
+        IconButton(onPressed: () => addTaskDialog(context, ref), icon: const Icon(Icons.add))
+      ]),
+      body: ListView(padding: const EdgeInsets.all(18), children: [
+        for (final status in const ['todo','doing','done'])
+          Card(child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(status == 'todo' ? 'To Do' : status == 'doing' ? 'Doing' : 'Done',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+            ...tasks.where((t) => t.status == status).map((t) => ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(t.title),
+              subtitle: Text(t.project.isEmpty ? 'بدون مشروع' : t.project),
+              leading: Checkbox(value: t.done, onChanged: (_) => ref.read(tasksProvider.notifier).toggle(t)),
+              trailing: PopupMenuButton<String>(
+                onSelected: (s) => ref.read(tasksProvider.notifier).move(t, s),
+                itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'todo', child: Text('To Do')),
+                  PopupMenuItem(value: 'doing', child: Text('Doing')),
+                  PopupMenuItem(value: 'done', child: Text('Done')),
+                ],
+              ),
+            )),
+          ]))),
+          const SizedBox(height: 12),
+      ]),
+    );
+  }
+}
+
+Future<void> addTaskDialog(BuildContext context, WidgetRef ref) async {
+  final title = TextEditingController();
+  final project = TextEditingController();
+  await showDialog<void>(context: context, builder: (dialogContext) => AlertDialog(
+    title: const Text('مهمة جديدة'),
+    content: Column(mainAxisSize: MainAxisSize.min, children: [
+      TextField(controller: title, decoration: const InputDecoration(labelText: 'عنوان المهمة')),
+      TextField(controller: project, decoration: const InputDecoration(labelText: 'المشروع')),
+    ]),
+    actions: [
+      TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('إلغاء')),
+      FilledButton(onPressed: () async {
+        if (title.text.trim().isNotEmpty) {
+          await ref.read(tasksProvider.notifier).add(title.text.trim(), project: project.text.trim());
+        }
+        if (dialogContext.mounted) Navigator.pop(dialogContext);
+      }, child: const Text('حفظ')),
+    ],
+  ));
+}
+
+class FinanceScreen extends StatefulWidget {
+  const FinanceScreen({super.key});
+  @override State<FinanceScreen> createState() => _FinanceState();
+}
+class _FinanceState extends State<FinanceScreen> {
+  Future<void> addTransaction() async {
+    final title = TextEditingController(), amount = TextEditingController();
+    String type = 'expense';
+    await showDialog<void>(context: context, builder: (dialogContext) => StatefulBuilder(
+      builder: (context, setLocal) => AlertDialog(
+        title: const Text('معاملة مالية'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(controller: title, decoration: const InputDecoration(labelText: 'الوصف')),
+          TextField(controller: amount, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'المبلغ')),
+          DropdownButton<String>(value: type, isExpanded: true, items: const [
+            DropdownMenuItem(value: 'expense', child: Text('مصروف')),
+            DropdownMenuItem(value: 'income', child: Text('دخل')),
+          ], onChanged: (v) => setLocal(() => type = v ?? 'expense')),
+        ]),
+        actions: [
+          FilledButton(onPressed: () async {
+            final value = double.tryParse(amount.text);
+            if (title.text.trim().isNotEmpty && value != null && value > 0) {
+              await Storage.box('transactions').put(const Uuid().v4(), {
+                'title': title.text.trim(), 'amount': value, 'type': type,
+                'date': DateTime.now().toIso8601String(),
+              });
+              if (dialogContext.mounted) Navigator.pop(dialogContext);
+              setState(() {});
+            }
+          }, child: const Text('حفظ')),
+        ],
+      ),
+    ));
+  }
+  @override Widget build(BuildContext context) {
+    final values = Storage.box('transactions').values.whereType<Map>()
+      .map((e) => Map<String,dynamic>.from(e)).toList();
+    double income = 0, expense = 0;
+    for (final m in values) {
+      final a = (m['amount'] as num?)?.toDouble() ?? 0;
+      if (m['type'] == 'income') income += a; else expense += a;
+    }
+    return Scaffold(appBar: AppBar(title: const Text('Finance OS'), actions: [
+      IconButton(onPressed: addTransaction, icon: const Icon(Icons.add))
+    ]), body: ListView(padding: const EdgeInsets.all(18), children: [
+      Card(child: Padding(padding: const EdgeInsets.all(18), child: Column(children: [
+        const Text('الرصيد الحقيقي'),
+        Text((income-expense).toStringAsFixed(2), style: Theme.of(context).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 16),
+        SizedBox(height: 180, child: PieChart(PieChartData(
+          sections: [
+            PieChartSectionData(value: income == 0 ? 0.01 : income, title: 'دخل'),
+            PieChartSectionData(value: expense == 0 ? 0.01 : expense, title: 'مصروف'),
+          ],
+        ))),
+      ]))),
+      const SizedBox(height: 12),
+      Card(child: Column(children: [
+        const ListTile(title: Text('المعاملات')),
+        ...values.reversed.take(30).map((m) => ListTile(
+          title: Text('${m['title'] ?? ''}'),
+          subtitle: Text(m['type'] == 'income' ? 'دخل' : 'مصروف'),
+          trailing: Text('${m['amount']}'),
+        )),
+      ])),
+    ]));
+  }
+}
+
+class HabitsScreen extends StatefulWidget {
+  const HabitsScreen({super.key});
+  @override State<HabitsScreen> createState() => _HabitsState();
+}
+class _HabitsState extends State<HabitsScreen> {
+  Future<void> addHabit() async {
+    final controller = TextEditingController();
+    await showDialog<void>(context: context, builder: (dialogContext) => AlertDialog(
+      title: const Text('عادة جديدة'),
+      content: TextField(controller: controller, decoration: const InputDecoration(labelText: 'اسم العادة')),
+      actions: [FilledButton(onPressed: () async {
+        if (controller.text.trim().isNotEmpty) {
+          await Storage.box('habits').put(const Uuid().v4(), {
+            'name': controller.text.trim(), 'streak': 0,
+            'createdAt': DateTime.now().toIso8601String(),
+          });
+        }
+        if (dialogContext.mounted) Navigator.pop(dialogContext);
+        setState(() {});
+      }, child: const Text('حفظ'))],
+    ));
+  }
+  @override Widget build(BuildContext context) {
+    final habits = Storage.box('habits').values.whereType<Map>().map((e) => Map<String,dynamic>.from(e)).toList();
+    return Scaffold(appBar: AppBar(title: const Text('Habit OS'), actions: [
+      IconButton(onPressed: addHabit, icon: const Icon(Icons.add))
+    ]), body: ListView(padding: const EdgeInsets.all(18), children: [
+      Card(child: Column(children: [
+        const ListTile(title: Text('عاداتك')),
+        if (habits.isEmpty) const Padding(padding: EdgeInsets.all(16), child: Text('أضف أول عادة.')),
+        ...habits.map((m) => ListTile(
+          leading: const Icon(Icons.local_fire_department, color: Colors.orange),
+          title: Text('${m['name']}'), trailing: Text('🔥 ${m['streak'] ?? 0}'),
+        )),
+      ])),
+      const SizedBox(height: 12),
+      Card(child: Column(children: [
+        const ListTile(title: Text('متتبع الصلوات')),
+        for (final p in const ['الفجر','الظهر','العصر','المغرب','العشاء'])
+          PrayerTile(name: p),
+      ])),
+      const SizedBox(height: 12),
+      Card(child: Column(children: [
+        const ListTile(title: Text('الماء والنوم')),
+        ListTile(title: const Text('الماء'), trailing: Text('${Storage.box('water').get('today', defaultValue: 0)} كوب')),
+        ListTile(title: const Text('النوم'), trailing: Text('${Storage.box('sleep').get('last', defaultValue: 0)} ساعة')),
+      ])),
+    ]);
+  }
+}
+class PrayerTile extends StatefulWidget {
+  const PrayerTile({required this.name, super.key}); final String name;
+  @override State<PrayerTile> createState() => _PrayerTileState();
+}
+class _PrayerTileState extends State<PrayerTile> {
+  bool checked = false;
+  @override Widget build(BuildContext context) => CheckboxListTile(
+    value: checked, title: Text(widget.name),
+    onChanged: (v) => setState(() => checked = v ?? false),
+  );
+}
+
+class VaultScreen extends StatefulWidget {
+  const VaultScreen({super.key});
+  @override State<VaultScreen> createState() => _VaultState();
+}
+class _VaultState extends State<VaultScreen> {
+  bool unlocked = false;
+  final auth = LocalAuthentication();
+  @override void initState() { super.initState(); unlock(); }
+  Future<void> unlock() async {
+    try {
+      final supported = await auth.isDeviceSupported();
+      final ok = supported ? await auth.authenticate(
+        localizedReason: 'افتح خزنة Nizam OS',
+        options: const AuthenticationOptions(biometricOnly: false, stickyAuth: true),
+      ) : false;
+      if (mounted) setState(() => unlocked = ok);
+    } catch (_) {
+      if (mounted) setState(() => unlocked = false);
+    }
+  }
+  @override Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Vault OS')),
+    body: Center(child: unlocked
+      ? const Text('الخزنة مفتوحة — يمكنك إضافة عناصر آمنة.')
+      : Column(mainAxisSize: MainAxisSize.min, children: [
+          const Icon(Icons.lock, size: 72), const SizedBox(height: 12),
+          const Text('الخزنة مقفلة'), const SizedBox(height: 12),
+          FilledButton(onPressed: unlock, child: const Text('فتح بالبصمة / قفل الجهاز')),
+        ])),
+  );
+}
+
+class GoalsScreen extends StatelessWidget {
+  const GoalsScreen({super.key});
+  @override Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Goals & Journal')),
+    body: ListView(padding: const EdgeInsets.all(18), children: [
+      const ListTile(title: Text('الأهداف'), subtitle: Text('Timeline')),
+      ...Storage.box('goals').values.whereType<Map>().map((e) => ListTile(
+        leading: const Icon(Icons.flag), title: Text('${e['title'] ?? ''}'),
+      )),
+      const SizedBox(height: 12),
+      TableCalendar(
+        focusedDay: DateTime.now(), firstDay: DateTime(2020), lastDay: DateTime(2100),
+        calendarFormat: CalendarFormat.month,
+        selectedDayPredicate: (d) => isSameDay(d, DateTime.now()),
+        onDaySelected: (_, __) {},
+      ),
+    ]),
+  );
+}
+
+class SearchScreen extends StatefulWidget {
+  const SearchScreen({super.key});
+  @override State<SearchScreen> createState() => _SearchState();
+}
+class _SearchState extends State<SearchScreen> {
+  final controller = TextEditingController();
+  List<String> results = [];
+  void search(String q) {
+    final all = <String>[];
+    for (final boxName in Storage.boxNames) {
+      for (final value in Storage.box(boxName).values) {
+        if (value is Map) all.addAll(value.values.map((v) => '$v'));
+        else all.add('$value');
+      }
+    }
+    setState(() => results = q.trim().isEmpty ? [] : all.where((x) => x.toLowerCase().contains(q.toLowerCase())).take(50).toList());
+  }
+  @override Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Global Search')),
+    body: Padding(padding: const EdgeInsets.all(18), child: Column(children: [
+      TextField(controller: controller, onChanged: search, decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'ابحث في بياناتك')),
+      Expanded(child: ListView(children: results.map((r) => ListTile(title: Text(r))).toList())),
+    ])),
+  );
+}
+
+class SettingsScreen extends ConsumerWidget {
+  const SettingsScreen({super.key});
+  @override Widget build(BuildContext context, WidgetRef ref) => Scaffold(
+    appBar: AppBar(title: const Text('Settings')),
+    body: ListView(padding: const EdgeInsets.all(18), children: [
+      Card(child: SwitchListTile(
+        title: const Text('الوضع الداكن'), value: ref.watch(themeProvider),
+        onChanged: (v) {
+          Storage.box('settings').put('darkMode', v);
+          ref.read(themeProvider.notifier).state = v;
+        },
+      )),
+      Card(child: ListTile(
+        leading: const Icon(Icons.lock), title: const Text('Vault OS'),
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VaultScreen())),
+      )),
+      Card(child: ListTile(
+        leading: const Icon(Icons.flag), title: const Text('الأهداف والمفكرة'),
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GoalsScreen())),
+      )),
+      Card(child: ListTile(
+        leading: const Icon(Icons.search), title: const Text('البحث الشامل'),
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SearchScreen())),
+      )),
+      Card(child: ListTile(
+        leading: const Icon(Icons.data_object), title: const Text('نسخ احتياطي JSON'),
+        subtitle: const Text('عرض حجم النسخة الاحتياطية المحلية'),
+        onTap: () async {
+          final data = await Storage.exportJson();
+          if (!context.mounted) return;
+          showDialog(context: context, builder: (_) => AlertDialog(
+            title: const Text('Backup JSON'),
+            content: Text('تم تجهيز نسخة بحجم ${utf8.encode(data).length} بايت.'),
+            actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('إغلاق'))],
+          ));
+        },
+      )),
+    ]),
+  );
+}

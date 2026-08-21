@@ -1,33 +1,74 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hive/hive.dart';
 import 'package:uuid/uuid.dart';
 import '../core/models.dart';
 import '../core/storage.dart';
-import '../services/notifications.dart';
 
-final themeProvider = StateProvider<bool>((ref)=>false);
-final tasksProvider = StateNotifierProvider<TasksNotifier,List<Task>>((ref)=>TasksNotifier());
+final themeProvider = StateProvider<bool>((ref) {
+  return Storage.box('settings').get('darkMode', defaultValue: false) == true;
+});
+
+final tasksProvider = StateNotifierProvider<TasksNotifier, List<Task>>(
+  (ref) => TasksNotifier(),
+);
+
 class TasksNotifier extends StateNotifier<List<Task>> {
-  final box=Storage.box('tasks'); final uuid=const Uuid();
-  TasksNotifier():super([]){ _load(); }
-  void _load(){ state=box.values.map((e)=>Task.fromMap(Map<String,dynamic>.from(e as Map))).toList(); }
-  Future<void> add(String title,{String project=''}) async {
-    final t=Task(id:uuid.v4(),title:title,project:project,createdAt:DateTime.now());
-    await box.put(t.id,t.toMap()); state=[...state,t];
+  TasksNotifier() : super([]) {
+    _load();
   }
-  Future<void> toggle(Task t) async {
-    final n=Task(id:t.id,title:t.title,project:t.project,status:t.done?'todo':'done',done:!t.done,createdAt:t.createdAt);
-    await box.put(t.id,n.toMap()); _load();
+
+  void _load() {
+    final box = Storage.box('tasks');
+    state = box.values
+        .whereType<Map>()
+        .map((e) => Task.fromMap(Map<String, dynamic>.from(e)))
+        .toList();
   }
-  Future<void> move(Task t,String status) async {
-    final n=Task(id:t.id,title:t.title,project:t.project,status:status,done:status=='done',createdAt:t.createdAt);
-    await box.put(t.id,n.toMap()); _load();
+
+  Future<void> add(String title, {String project = ''}) async {
+    final task = Task(
+      id: const Uuid().v4(),
+      title: title,
+      project: project,
+      createdAt: DateTime.now(),
+    );
+    await Storage.box('tasks').put(task.id, task.toMap());
+    _load();
   }
-  Future<void> notify(Task t)=>NotificationService.show('مهمة: ${t.title}','حان وقت إنجاز المهمة');
+
+  Future<void> toggle(Task task) async {
+    final updated = Task(
+      id: task.id,
+      title: task.title,
+      project: task.project,
+      status: task.done ? 'todo' : 'done',
+      done: !task.done,
+      createdAt: task.createdAt,
+    );
+    await Storage.box('tasks').put(updated.id, updated.toMap());
+    _load();
+  }
+
+  Future<void> move(Task task, String status) async {
+    final updated = Task(
+      id: task.id,
+      title: task.title,
+      project: task.project,
+      status: status,
+      done: status == 'done',
+      createdAt: task.createdAt,
+    );
+    await Storage.box('tasks').put(updated.id, updated.toMap());
+    _load();
+  }
 }
-final financeProvider=Provider<double>((ref){
-  final b=Storage.box('transactions'); double total=0;
-  for(final v in b.values){ final m=Map<String,dynamic>.from(v as Map); final a=(m['amount'] as num).toDouble(); total += m['type']=='income'?a:-a; }
+
+final financeProvider = Provider<double>((ref) {
+  var total = 0.0;
+  for (final value in Storage.box('transactions').values) {
+    if (value is! Map) continue;
+    final map = Map<String, dynamic>.from(value);
+    final amount = (map['amount'] as num?)?.toDouble() ?? 0;
+    total += map['type'] == 'income' ? amount : -amount;
+  }
   return total;
 });
-final habitsProvider=StateProvider<Map<String,bool>>((ref)=>{});
