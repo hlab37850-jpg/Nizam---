@@ -37,3 +37,12 @@ Nizam OS — نظام التشغيل الشخصي، تطبيق Flutter عربي 
 
 يجب أن يظهر الملف:
 `build/app/outputs/flutter-apk/app-release.apk`
+
+
+## GitHub build hardening
+
+The workflow uses `--project-name nizam_os` so the repository folder name does not become the Dart package name. Flutter requires project/package names to use `lowercase_with_underscores`.
+
+The workflow also pins Java 17, AGP 8.3.0 and Gradle 8.4. AGP 8.3 requires Gradle 8.4 and JDK 17.
+
+For Flutter 3.22.3, the workflow removes the compile-time dependency on `groovy.xml.QName` from Flutter's bundled `flutter.groovy` and performs the same check by class name at runtime. This avoids the `unable to resolve class groovy.xml.QName` failure observed on GitHub Actions.

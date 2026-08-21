@@ -32,7 +32,25 @@ jobs:
       # break the runner.
       - name: Refresh Android platform files
         run: |
-          flutter create --platforms=android --org com.nizam .
+          flutter create --project-name nizam_os --platforms=android --org com.nizam .
+
+          # Flutter 3.22.3 imports groovy.xml.QName in flutter.groovy.
+          # Gradle 8.x no longer exposes groovy-xml to this compile classpath.
+          # Replace the compile-time QName type check with a runtime class-name check.
+          FLUTTER_GROOVY="$FLUTTER_ROOT/packages/flutter_tools/gradle/src/main/groovy/flutter.groovy"
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+          p = Path(os.environ["FLUTTER_ROOT"]) / "packages/flutter_tools/gradle/src/main/groovy/flutter.groovy"
+          text = p.read_text()
+          text = text.replace("import groovy.xml.QName\n", "")
+          text = text.replace(
+              "if (entry.key instanceof QName) {",
+              "if (entry.key != null && entry.key.getClass().getName() == 'groovy.xml.QName') {",
+          )
+          p.write_text(text)
+          PY
+
           sed -i 's/gradle-[0-9.]*-bin.zip/gradle-8.4-bin.zip/' android/gradle/wrapper/gradle-wrapper.properties
 
       - name: Flutter doctor

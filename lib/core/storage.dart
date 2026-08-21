@@ -13,9 +13,9 @@ class Storage {
   static Future<void> init() async {
     await Hive.initFlutter();
     final stored = await secure.read(key: 'nizam_hive_key');
-    final List<int> key;
+    late final Uint8List key;
     if (stored == null) {
-      key = Hive.generateSecureKey();
+      key = Uint8List.fromList(Hive.generateSecureKey());
       await secure.write(key: 'nizam_hive_key', value: base64UrlEncode(key));
     } else {
       key = Uint8List.fromList(base64Url.decode(stored));
