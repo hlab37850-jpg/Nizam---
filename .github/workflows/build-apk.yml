@@ -75,6 +75,14 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Install required Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "platform-tools" "platforms;android-36"
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager --list | grep -E "platforms;android-36|build-tools" | head -20 || true
+
       - name: Accept Android licenses
         shell: bash
         run: |
