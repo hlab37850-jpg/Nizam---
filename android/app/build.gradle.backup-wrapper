@@ -22,7 +22,7 @@ if (flutterVersionName == null) {
 
 android {
     namespace = "com.nizam.os"
-    compileSdk = 35
+    compileSdk = 34
 
     ndkVersion = flutter.ndkVersion
 

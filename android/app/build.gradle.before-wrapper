@@ -22,13 +22,14 @@ if (flutterVersionName == null) {
 
 android {
     namespace = "com.nizam.os"
-    compileSdk = 35
+    compileSdk = 34
 
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {

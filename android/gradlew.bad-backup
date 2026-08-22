@@ -1,0 +1,15 @@
+#!/bin/sh
+set -e
+if command -v gradle >/dev/null 2>&1; then
+  exec gradle "$@"
+fi
+DIST="$HOME/.gradle/wrapper/dists/gradle-8.4-bin.zip"
+DIR="$HOME/.gradle/nizam-gradle/gradle-8.4"
+if [ ! -x "$DIR/bin/gradle" ]; then
+  mkdir -p "$(dirname "$DIST")" "$DIR"
+  if [ ! -f "$DIST" ]; then
+    curl -fsSL -o "$DIST" https://services.gradle.org/distributions/gradle-8.4-bin.zip
+  fi
+  unzip -q -o "$DIST" -d "$HOME/.gradle/nizam-gradle"
+fi
+exec "$DIR/bin/gradle" "$@"
